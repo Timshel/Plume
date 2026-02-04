@@ -9,17 +9,17 @@ use rocket::response::Redirect;
 #[get("/timeline/<id>?<page>")]
 pub fn details(
     id: i32,
-    conn: DbConn,
+    mut conn: DbConn,
     rockets: PlumeRocket,
     page: Option<Page>,
 ) -> Result<Ructe, ErrorPage> {
     let page = page.unwrap_or_default();
-    let all_tl = Timeline::list_all_for_user(&conn, rockets.user.clone().map(|u| u.id))?;
-    let tl = Timeline::get(&conn, id)?;
-    let posts = tl.get_page(&conn, page.limits())?;
-    let total_posts = tl.count_posts(&conn)?;
-    Ok(render!(timelines::details(
-        &(&conn, &rockets).to_context(),
+    let all_tl = Timeline::list_all_for_user(&mut conn, rockets.user.clone().map(|u| u.id))?;
+    let tl = Timeline::get(&mut conn, id)?;
+    let posts = tl.get_page(&mut conn, page.limits())?;
+    let total_posts = tl.count_posts(&mut conn)?;
+    Ok(render!(timelines::details_html(
+        &(&mut conn, &rockets).to_context(),
         tl,
         posts,
         all_tl,

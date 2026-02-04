@@ -355,7 +355,7 @@ impl PlumeQuery {
 }
 
 impl std::str::FromStr for PlumeQuery {
-    type Err = !;
+    type Err = ();
 
     /// Create a new Query from &str
     /// Same as doing
@@ -365,7 +365,7 @@ impl std::str::FromStr for PlumeQuery {
     /// let mut q = Query::new();
     /// q.parse_query("some query");
     /// ```
-    fn from_str(query: &str) -> Result<PlumeQuery, !> {
+    fn from_str(query: &str) -> Result<PlumeQuery, ()> {
         let mut res: PlumeQuery = Default::default();
 
         res.from_str_req(query.trim());
@@ -374,6 +374,8 @@ impl std::str::FromStr for PlumeQuery {
 }
 
 impl ToString for PlumeQuery {
+
+    #[allow(for_loops_over_fallibles)]
     fn to_string(&self) -> String {
         let mut result = String::new();
         for (occur, val) in &self.text {

@@ -1,10 +1,10 @@
 @use plume_models::notifications::Notification;
-@use crate::templates::base;
+@use crate::templates::base_html;
 @use crate::template_utils::*;
 
 @(ctx: BaseContext, notifications: Vec<Notification>, page: i32, n_pages: i32)
 
-@:base(ctx, i18n!(ctx.1, "Notifications"), {}, {}, {
+@:base_html(ctx, i18n!(ctx.1, "Notifications"), {}, {}, {
     <h1>@i18n!(ctx.1, "Notifications")</h1>
 
     <div class="list">

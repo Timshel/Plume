@@ -44,19 +44,19 @@ impl Actor for RemoteFetchActor {
         match msg {
             RemoteUserFound(user) => match self.conn.get() {
                 Ok(conn) => {
-                    let conn = DbConn(conn);
+                    let mut conn = DbConn(conn);
                     if user
-                        .get_instance(&conn)
+                        .get_instance(&mut conn)
                         .map_or(false, |instance| instance.blocked)
                     {
                         return;
                     }
                     // Don't call these functions in parallel
                     // for the case database connections limit is too small
-                    fetch_and_cache_articles(&user, &conn);
-                    fetch_and_cache_followers(&user, &conn);
+                    fetch_and_cache_articles(&user, &mut conn);
+                    fetch_and_cache_followers(&user, &mut conn);
                     if user.needs_update() {
-                        fetch_and_cache_user(&user, &conn);
+                        fetch_and_cache_user(&user, &mut conn);
                     }
                 }
                 _ => {
@@ -73,7 +73,7 @@ impl ActorFactoryArgs<DbPool> for RemoteFetchActor {
     }
 }
 
-fn fetch_and_cache_articles(user: &Arc<User>, conn: &DbConn) {
+fn fetch_and_cache_articles(user: &Arc<User>, conn: &mut DbConn) {
     let create_acts = user.fetch_outbox::<Create>();
     match create_acts {
         Ok(create_acts) => {
@@ -98,7 +98,7 @@ fn fetch_and_cache_articles(user: &Arc<User>, conn: &DbConn) {
     }
 }
 
-fn fetch_and_cache_followers(user: &Arc<User>, conn: &DbConn) {
+fn fetch_and_cache_followers(user: &Arc<User>, conn: &mut DbConn) {
     let follower_ids = user.fetch_followers_ids();
     match follower_ids {
         Ok(user_ids) => {
@@ -130,7 +130,7 @@ fn fetch_and_cache_followers(user: &Arc<User>, conn: &DbConn) {
     }
 }
 
-fn fetch_and_cache_user(user: &Arc<User>, conn: &DbConn) {
+fn fetch_and_cache_user(user: &Arc<User>, conn: &mut DbConn) {
     if user.refetch(conn).is_err() {
         error!("Couldn't update user info: {:?}", user);
     }

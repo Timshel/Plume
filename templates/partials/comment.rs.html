@@ -10,7 +10,7 @@
 <div class="comment u-comment h-cite" id="comment-@comm.id">
     <main class="content">
         <header>
-            <a class="author u-author h-card" href="@uri!(user::details: name = &author.fqn)" dir="auto">
+            <a class="author u-author h-card" href="@uri!(user::details(name = &author.fqn))" dir="auto">
                 @avatar(ctx.0, &author, Size::Small, true, ctx.1)
                 <span class="display-name p-name">@author.name()</span>
                 <small>@author.fqn</small>
@@ -38,7 +38,7 @@
         </div>
         <a class="button icon icon-message-circle" href="?responding_to=@comm.id">@i18n!(ctx.1, "Respond")</a>
         @if ctx.2.clone().map(|u| u.id == author.id).unwrap_or(false) {
-            <form class="inline icon icon-trash" method="post" action="@uri!(comments::delete: blog = blog, slug = slug, id = comm.id)">
+            <form class="inline icon icon-trash" method="post" action="@uri!(comments::delete(blog = blog, slug = slug, id = comm.id))">
                 <input onclick="return confirm('@i18n!(ctx.1, "Are you sure?")')" type="submit" value="@i18n!(ctx.1, "Delete this comment")">
     	    </form>
         }

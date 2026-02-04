@@ -6,16 +6,17 @@ use plume_models::{db_conn::DbConn, posts::Post, PlumeRocket};
 pub fn tag(
     name: String,
     page: Option<Page>,
-    conn: DbConn,
+    mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> Result<Ructe, ErrorPage> {
     let page = page.unwrap_or_default();
-    let posts = Post::list_by_tag(&conn, name.clone(), page.limits())?;
-    Ok(render!(tags::index(
-        &(&conn, &rockets).to_context(),
-        name.clone(),
+    let posts = Post::list_by_tag(&mut conn, name.clone(), page.limits())?;
+    let page_total = Page::total(Post::count_for_tag(&mut conn, name.clone())? as i32);
+    Ok(render!(tags::index_html(
+        &(&mut conn, &rockets).to_context(),
+        name,
         posts,
         page.0,
-        Page::total(Post::count_for_tag(&conn, name)? as i32)
+        page_total
     )))
 }

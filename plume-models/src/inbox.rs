@@ -45,7 +45,7 @@ impl_into_inbox_result! {
     Reshare => Reshared
 }
 
-pub fn inbox(conn: &Connection, act: serde_json::Value) -> Result<InboxResult, Error> {
+pub fn inbox(conn: &mut Connection, act: serde_json::Value) -> Result<InboxResult, Error> {
     Inbox::handle(conn, act)
         .with::<User, Announce, Post>(CONFIG.proxy())
         .with::<User, Create, Comment>(CONFIG.proxy())

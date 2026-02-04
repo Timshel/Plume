@@ -3,13 +3,13 @@
 @use plume_models::posts::Post;
 @use plume_models::users::User;
 @use std::path::Path;
-@use crate::templates::{base, partials::post_card};
+@use crate::templates::{base_html, partials::post_card_html};
 @use crate::template_utils::*;
 @use crate::routes::*;
 
 @(ctx: BaseContext, blog: Blog, authors: &[User], page: i32, n_pages: i32, posts: Vec<Post>)
 
-@:base(ctx, blog.title.clone(), {
+@:base_html(ctx, blog.title.clone(), {
 	<meta content="profile" property="og:type" />
 	<meta content="120" property="og:image:width" />
 	<meta content="120" property="og:image:height" />
@@ -27,11 +27,11 @@
 	<link href='@blog.ap_url' rel='canonical'>
     @if !ctx.2.clone().map(|u| u.hide_custom_css).unwrap_or(false) {
         @if let Some(ref theme) = blog.theme {
-            <link rel="stylesheet" href="@uri!(plume_static_files: file = Path::new("css").join(theme).join("theme.css"), build_id = CACHE_NAME)">
+            <link rel="stylesheet" href="@uri!(plume_static_files(file = Path::new("css").join(theme).join("theme.css"), _build_id = CACHE_NAME))">
         }
     }
 }, {
-    <a href="@uri!(blogs::details: name = &blog.fqn, page = _)" dir="auto">@blog.title</a>
+    <a href="@uri!(blogs::details(name = &blog.fqn, page = _))" dir="auto">@blog.title</a>
 }, {
 <div class="hidden">
     @for author in authors {
@@ -58,8 +58,8 @@
                 </h1>
 
                 @if ctx.2.clone().and_then(|u| u.is_author_in(ctx.0, &blog).ok()).unwrap_or(false) {
-                    <a href="@uri!(posts::new: blog = &blog.fqn)" class="button" dir="auto">@i18n!(ctx.1, "New article")</a>
-                    <a href="@uri!(blogs::edit: name = &blog.fqn)" class="button" dir="auto">@i18n!(ctx.1, "Edit")</a>
+                    <a href="@uri!(posts::new(blog = &blog.fqn))" class="button" dir="auto">@i18n!(ctx.1, "New article")</a>
+                    <a href="@uri!(blogs::edit(name = &blog.fqn))" class="button" dir="auto">@i18n!(ctx.1, "Edit")</a>
                 }
             </div>
 
@@ -67,7 +67,7 @@
                 <p>
                     @i18n!(ctx.1, "There's one author on this blog: ", "There are {0} authors on this blog: "; authors.len())
                     @for (i, author) in authors.iter().enumerate() {@if i >= 1 {, }
-                    <a class="author p-author" href="@uri!(user::details: name = &author.fqn)" dir="auto">@author.name()</a>}
+                    <a class="author p-author" href="@uri!(user::details(name = &author.fqn))" dir="auto">@author.name()</a>}
                 </p>
                 @Html(blog.summary_html.clone())
             </main>
@@ -76,14 +76,14 @@
     <section>
         <h2 dir="auto">
             @i18n!(ctx.1, "Latest articles")
-            <small><a href="@uri!(blogs::atom_feed: name = &blog.fqn)" title="Atom feed">@icon!("rss")</a></small>
+            <small><a href="@uri!(blogs::atom_feed(name = &blog.fqn))" title="Atom feed">@icon!("rss")</a></small>
         </h2>
         @if posts.is_empty() {
             <p dir="auto">@i18n!(ctx.1, "No posts to see here yet.")</p>
         }
         <div class="cards">
             @for article in posts {
-                @:post_card(ctx, article)
+                @:post_card_html(ctx, article)
             }
         </div>
         @paginate(ctx.1, page, n_pages)

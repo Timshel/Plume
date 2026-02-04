@@ -1,12 +1,11 @@
 use rocket::http::ContentType;
-use rocket::response::Content;
-use webfinger::*;
 
 use plume_models::{ap_url, blogs::Blog, db_conn::DbConn, users::User, CONFIG};
+use ::webfinger::{Prefix, Resolver, ResolverError, Webfinger};
 
 #[get("/.well-known/nodeinfo")]
-pub fn nodeinfo() -> Content<String> {
-    Content(
+pub fn nodeinfo() -> (ContentType,String) {
+    (
         ContentType::new("application", "jrd+json"),
         json!({
             "links": [
@@ -41,19 +40,19 @@ pub fn host_meta() -> String {
 }
 
 struct WebfingerResolver;
-
 impl Resolver<DbConn> for WebfingerResolver {
+
     fn instance_domain<'a>() -> &'a str {
         CONFIG.base_url.as_str()
     }
 
-    fn find(prefix: Prefix, acct: String, conn: DbConn) -> Result<Webfinger, ResolverError> {
+    fn find(prefix: Prefix, acct: String, mut conn: DbConn) -> Result<Webfinger, ResolverError> {
         match prefix {
-            Prefix::Acct => User::find_by_fqn(&conn, &acct)
-                .and_then(|usr| usr.webfinger(&conn))
+            Prefix::Acct => User::find_by_fqn(&mut conn, &acct)
+                .and_then(|usr| usr.webfinger(&mut conn))
                 .or(Err(ResolverError::NotFound)),
-            Prefix::Group => Blog::find_by_fqn(&conn, &acct)
-                .and_then(|blog| blog.webfinger(&conn))
+            Prefix::Group => Blog::find_by_fqn(&mut conn, &acct)
+                .and_then(|blog| blog.webfinger(&mut conn))
                 .or(Err(ResolverError::NotFound)),
             Prefix::Custom(_) => Err(ResolverError::NotFound),
         }
@@ -61,12 +60,12 @@ impl Resolver<DbConn> for WebfingerResolver {
 }
 
 #[get("/.well-known/webfinger?<resource>")]
-pub fn webfinger(resource: String, conn: DbConn) -> Content<String> {
+pub fn webfinger(resource: String, conn: DbConn) -> (ContentType, String) {
     match WebfingerResolver::endpoint(resource, conn)
         .and_then(|wf| serde_json::to_string(&wf).map_err(|_| ResolverError::NotFound))
     {
-        Ok(wf) => Content(ContentType::new("application", "jrd+json"), wf),
-        Err(err) => Content(
+        Ok(wf) => (ContentType::new("application", "jrd+json"), wf),
+        Err(err) => (
             ContentType::new("text", "plain"),
             String::from(match err {
                 ResolverError::InvalidResource => {

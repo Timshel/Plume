@@ -154,7 +154,7 @@ enum TQ<'a> {
 impl<'a> TQ<'a> {
     fn matches(
         &self,
-        conn: &Connection,
+        conn: &mut Connection,
         timeline: &Timeline,
         post: &Post,
         kind: Kind<'_>,
@@ -199,7 +199,7 @@ enum Arg<'a> {
 impl<'a> Arg<'a> {
     pub fn matches(
         &self,
-        conn: &Connection,
+        conn: &mut Connection,
         timeline: &Timeline,
         post: &Post,
         kind: Kind<'_>,
@@ -224,7 +224,7 @@ enum WithList {
 impl WithList {
     pub fn matches(
         &self,
-        conn: &Connection,
+        conn: &mut Connection,
         timeline: &Timeline,
         post: &Post,
         list: &List<'_>,
@@ -291,8 +291,12 @@ impl WithList {
                 WithList::Author { boosts, likes } => match kind {
                     Kind::Original => Ok(list
                         .iter()
-                        .filter_map(|a| User::find_by_fqn(conn, a).ok())
-                        .any(|a| post.is_author(conn, a.id).unwrap_or(false))),
+                        .any(|a| {
+                            match User::find_by_fqn(conn, a).ok() {
+                                Some(u) => post.is_author(conn, u.id).unwrap_or(false),
+                                None => false,
+                            }
+                        })),
                     Kind::Reshare(u) => {
                         if *boosts {
                             Ok(list.iter().any(|user| &u.fqn == user))
@@ -360,7 +364,7 @@ enum Bool {
 impl Bool {
     pub fn matches(
         &self,
-        conn: &Connection,
+        conn: &mut Connection,
         timeline: &Timeline,
         post: &Post,
         kind: Kind<'_>,
@@ -653,7 +657,7 @@ impl<'a> TimelineQuery<'a> {
 
     pub fn matches(
         &self,
-        conn: &Connection,
+        conn: &mut Connection,
         timeline: &Timeline,
         post: &Post,
         kind: Kind<'_>,

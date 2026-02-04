@@ -2,10 +2,9 @@ use plume_models::{db_conn::DbConn, notifications::*, users::User, Connection, P
 
 use crate::templates::Html;
 use gettext::Catalog;
-use rocket::http::hyper::header::{ETag, EntityTag};
-use rocket::http::{Method, Status};
+use rocket::http::{hyper::header::ETAG, Method, Status};
 use rocket::request::Request;
-use rocket::response::{self, content::Html as HtmlCt, Responder, Response};
+use rocket::response::{self, content::RawHtml as HtmlCt, Responder, Response};
 use std::collections::{btree_map::BTreeMap, hash_map::DefaultHasher};
 use std::hash::Hasher;
 
@@ -14,7 +13,7 @@ pub use plume_common::utils::escape;
 pub static CACHE_NAME: &str = env!("CACHE_ID");
 
 pub type BaseContext<'a> = &'a (
-    &'a Connection,
+    &'a mut Connection,
     &'a Catalog,
     Option<User>,
     Option<(String, String)>,
@@ -22,20 +21,20 @@ pub type BaseContext<'a> = &'a (
 
 pub trait IntoContext {
     fn to_context(
-        &self,
+        &mut self,
     ) -> (
-        &Connection,
+        &mut Connection,
         &Catalog,
         Option<User>,
         Option<(String, String)>,
     );
 }
 
-impl IntoContext for (&DbConn, &PlumeRocket) {
+impl IntoContext for (&mut DbConn, &PlumeRocket) {
     fn to_context(
-        &self,
+        &mut self,
     ) -> (
-        &Connection,
+        &mut Connection,
         &Catalog,
         Option<User>,
         Option<(String, String)>,
@@ -52,8 +51,8 @@ impl IntoContext for (&DbConn, &PlumeRocket) {
 #[derive(Debug)]
 pub struct Ructe(pub Vec<u8>);
 
-impl<'r> Responder<'r> for Ructe {
-    fn respond_to(self, r: &Request<'_>) -> response::Result<'r> {
+impl<'r> Responder<'r, 'static> for Ructe {
+    fn respond_to(self, r: &Request<'_>) -> response::Result<'static> {
         //if method is not Get or page contain a form, no caching
         if r.method() != Method::Get || self.0.windows(6).any(|w| w == b"<form ") {
             return HtmlCt(self.0).respond_to(r);
@@ -70,12 +69,12 @@ impl<'r> Responder<'r> for Ructe {
         {
             Response::build()
                 .status(Status::NotModified)
-                .header(ETag(EntityTag::strong(etag)))
+                .raw_header(ETAG.as_str(), etag)
                 .ok()
         } else {
             Response::build()
                 .merge(HtmlCt(self.0).respond_to(r)?)
-                .header(ETag(EntityTag::strong(etag)))
+                .raw_header(ETAG.as_str(), etag)
                 .ok()
         }
     }
@@ -138,7 +137,7 @@ impl Size {
 }
 
 pub fn avatar(
-    conn: &Connection,
+    conn: &mut Connection,
     user: &User,
     size: Size,
     pad: bool,

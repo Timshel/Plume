@@ -208,7 +208,7 @@ Then try to restart Plume
         })
     }
 
-    pub fn add_document(&self, conn: &Connection, post: &Post) -> Result<()> {
+    pub fn add_document(&self, conn: &mut Connection, post: &Post) -> Result<()> {
         if !post.published {
             return Ok(());
         }
@@ -236,7 +236,10 @@ Then try to restart Plume
             post_id => i64::from(post.id),
             author => post.get_authors(conn)?.into_iter().map(|u| u.fqn).join(" "),
             creation_date => i64::from(post.creation_date.num_days_from_ce()),
-            instance => Instance::get(conn, post.get_blog(conn)?.instance_id)?.public_domain,
+            instance => {
+                let post = post.get_blog(conn)?;
+                Instance::get(conn, post.instance_id)?.public_domain
+            },
             tag => Tag::for_post(conn, post.id)?.into_iter().map(|t| t.tag).join(" "),
             blog_name => post.get_blog(conn)?.title,
             content => post.content.get().clone(),
@@ -258,14 +261,14 @@ Then try to restart Plume
         writer.delete_term(doc_id);
     }
 
-    pub fn update_document(&self, conn: &Connection, post: &Post) -> Result<()> {
+    pub fn update_document(&self, conn: &mut Connection, post: &Post) -> Result<()> {
         self.delete_document(post);
         self.add_document(conn, post)
     }
 
     pub fn search_document(
         &self,
-        conn: &Connection,
+        conn: &mut Connection,
         query: PlumeQuery,
         (min, max): (i32, i32),
     ) -> Vec<Post> {
@@ -289,7 +292,7 @@ Then try to restart Plume
             .collect()
     }
 
-    pub fn fill(&self, conn: &Connection) -> Result<()> {
+    pub fn fill(&self, conn: &mut Connection) -> Result<()> {
         let mut writer = self.writer.lock().unwrap();
         let writer = writer.as_mut().unwrap();
         writer.delete_all_documents().unwrap();
