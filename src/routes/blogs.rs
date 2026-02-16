@@ -9,7 +9,7 @@ use std::{borrow::Cow, collections::HashMap};
 use validator::{Validate, ValidationError, ValidationErrors};
 
 use crate::routes::{errors::ErrorPage, Page, RespondOrRedirect};
-use crate::template_utils::{IntoContext, Ructe};
+use crate::template_utils::{IntoContext, Ructe, PostCard};
 use crate::utils::requires_login;
 use plume_common::activity_pub::{ActivityStream, ApRequest, CustomGroup};
 use plume_common::utils;
@@ -27,14 +27,22 @@ pub fn details(
 ) -> Result<Ructe, ErrorPage> {
     let page = page.unwrap_or_default();
     let blog = Blog::find_by_fqn(&mut conn, &name)?;
-    let posts = Post::blog_page(&mut conn, &blog, page.limits())?;
+    let blog_icon_url = blog.icon_url(&mut conn);
+    let blog_banner_url = blog.banner_url(&mut conn);
     let articles_count = Post::count_for_blog(&mut conn, &blog)?;
     let authors = &blog.list_authors(&mut conn)?;
+    let is_author = rockets.user.as_ref().and_then(|u| u.is_author_in(&mut conn, &blog).ok()).unwrap_or(false);
+
+    let blog_pages = Post::blog_page(&mut conn, &blog, page.limits())?;
+    let posts = PostCard::from_posts(&mut conn, blog_pages, &rockets.user);
 
     Ok(render!(blogs::details_html(
         &(&mut conn, &rockets).to_context(),
         blog,
+        blog_icon_url,
+        blog_banner_url,
         authors,
+        is_author,
         page.0,
         Page::total(articles_count as i32),
         posts

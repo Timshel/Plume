@@ -1,6 +1,6 @@
 use chrono::offset::Utc;
 use crate::routes::Page;
-use crate::template_utils::{IntoContext, Ructe};
+use crate::template_utils::{IntoContext, PostCard, Ructe};
 use plume_models::{db_conn::DbConn, search::Query, PlumeRocket};
 use rocket::http::uri::fmt::{Ignorable, Query as RocketQuery};
 use std::str::FromStr;
@@ -68,14 +68,17 @@ pub fn search(query: SearchQuery, mut conn: DbConn, rockets: PlumeRocket) -> Ruc
             &format!("{}", Utc::now().date_naive().format("%Y-%m-d"))
         ))
     } else {
-        let res = rockets
+        let docs = rockets
             .searcher
             .search_document(&mut conn, parsed_query, page.limits());
-        let next_page = if res.is_empty() { 0 } else { page.0 + 1 };
+        let next_page = if docs.is_empty() { 0 } else { page.0 + 1 };
+
+        let pc = PostCard::from_posts(&mut conn, docs, &rockets.user);
+
         render!(search::result_html(
             &(&mut conn, &rockets).to_context(),
             &str_query,
-            res,
+            pc,
             page.0,
             next_page
         ))

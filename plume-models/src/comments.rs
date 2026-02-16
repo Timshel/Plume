@@ -403,6 +403,9 @@ impl AsObject<User, Delete, &mut Connection> for Comment {
 
 pub struct CommentTree {
     pub comment: Comment,
+    pub comment_author: Option<User>,
+    pub author_image_url: Option<String>,
+    pub post: Option<Post>,
     pub responses: Vec<CommentTree>,
 }
 
@@ -433,7 +436,12 @@ impl CommentTree {
                 }
             })
             .collect();
-        Ok(CommentTree { comment, responses })
+
+        let comment_author = comment.get_author(conn).ok();
+        let author_image_url = comment_author.as_ref().and_then(|u| u.avatar_url(conn));
+        let post = comment.get_post(conn).ok();
+
+        Ok(CommentTree { comment, comment_author, author_image_url, post, responses })
     }
 }
 

@@ -1,11 +1,10 @@
-@use plume_models::posts::Post;
 @use plume_models::timeline::Timeline;
 @use crate::template_utils::*;
 @use crate::templates::base_html;
 @use crate::templates::partials::post_card_html;
 @use crate::routes::*;
 
-@(ctx: BaseContext, tl: Timeline, articles: Vec<Post>, all_tl: Vec<Timeline>, page: i32, n_pages: i32)
+@(ctx: BaseContext, tl: Timeline, articles: Vec<PostCard>, all_tl: Vec<Timeline>, page: i32, n_pages: i32)
 
 @:base_html(ctx, tl.name.clone(), {}, {}, {
     <section class="flex wrap" dir="auto">

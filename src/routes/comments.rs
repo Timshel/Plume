@@ -105,9 +105,9 @@ pub fn create(
             let comments = CommentTree::from_post(&mut conn, &post, Some(&user))
                 .expect("comments::create: comments error");
 
-            let previous = form.responding_to.and_then(|r| Comment::get(&mut conn, r).ok());
-
+            let cover_url = post.cover_url(&mut conn).unwrap_or_default();
             let tags = Tag::for_post(&mut conn, post.id).expect("comments::create: tags error");
+            let previous = form.responding_to.and_then(|r| Comment::get(&mut conn, r).ok());
             let likes = post.count_likes(&mut conn).expect("comments::create: count likes error");
             let counts = post.count_reshares(&mut conn).expect("comments::create: count reshares error");
             let liked = user.has_liked(&mut conn, &post).expect("comments::create: liked error");
@@ -115,10 +115,13 @@ pub fn create(
 
             let author = post.get_authors(&mut conn).expect("comments::create: authors error").swap_remove(0);
             let following = user.is_following(&mut conn, author.id).expect("comments::create: following error");
+            let author_avatar_url = author.avatar_url(&mut conn);
+            let is_author = post.is_author(&mut conn, user.id).ok().unwrap_or(false);
 
             render!(posts::details_html(
                 &(&mut conn, &rockets).to_context(),
-                post.clone(),
+                post,
+                cover_url,
                 blog,
                 &*form,
                 errors,
@@ -130,7 +133,9 @@ pub fn create(
                 liked,
                 reshared,
                 following,
-                author
+                author,
+                author_avatar_url,
+                is_author
             ))
         })
 }

@@ -1,4 +1,4 @@
-use plume_models::{db_conn::DbConn, notifications::*, users::User, Connection, PlumeRocket};
+use plume_models::{db_conn::DbConn, notifications::*, users::User, PlumeRocket};
 
 use crate::templates::Html;
 use gettext::Catalog;
@@ -13,7 +13,7 @@ pub use plume_common::utils::escape;
 pub static CACHE_NAME: &str = env!("CACHE_ID");
 
 pub type BaseContext<'a> = &'a (
-    &'a mut Connection,
+    Option<String>,
     &'a Catalog,
     Option<User>,
     Option<(String, String)>,
@@ -23,7 +23,7 @@ pub trait IntoContext {
     fn to_context(
         &mut self,
     ) -> (
-        &mut Connection,
+        Option<String>,
         &Catalog,
         Option<User>,
         Option<(String, String)>,
@@ -34,13 +34,15 @@ impl IntoContext for (&mut DbConn, &PlumeRocket) {
     fn to_context(
         &mut self,
     ) -> (
-        &mut Connection,
+        Option<String>,
         &Catalog,
         Option<User>,
         Option<(String, String)>,
     ) {
+
+        let avatar_url = self.1.user.as_ref().and_then(|u| u.avatar_url(self.0));
         (
-            self.0,
+            avatar_url,
             &self.1.intl.catalog,
             self.1.user.clone(),
             self.1.flash_msg.clone(),
@@ -98,16 +100,14 @@ macro_rules! render {
     }
 }
 
-pub fn translate_notification(ctx: BaseContext<'_>, notif: Notification) -> String {
-    let name = notif
-        .get_actor(ctx.0)
-        .map_or_else(|_| i18n!(ctx.1, "Someone"), |user| user.name());
+pub fn translate_notification(cat: &Catalog, notif: &Notification, actor: &Option<User>) -> String {
+    let name = actor.as_ref().map_or_else(|| i18n!(cat, "Someone"), |user| user.name());
     match notif.kind.as_ref() {
-        notification_kind::COMMENT => i18n!(ctx.1, "{0} commented on your article."; &name),
-        notification_kind::FOLLOW => i18n!(ctx.1, "{0} is subscribed to you."; &name),
-        notification_kind::LIKE => i18n!(ctx.1, "{0} liked your article."; &name),
-        notification_kind::MENTION => i18n!(ctx.1, "{0} mentioned you."; &name),
-        notification_kind::RESHARE => i18n!(ctx.1, "{0} boosted your article."; &name),
+        notification_kind::COMMENT => i18n!(cat, "{0} commented on your article."; &name),
+        notification_kind::FOLLOW => i18n!(cat, "{0} is subscribed to you."; &name),
+        notification_kind::LIKE => i18n!(cat, "{0} liked your article."; &name),
+        notification_kind::MENTION => i18n!(cat, "{0} mentioned you."; &name),
+        notification_kind::RESHARE => i18n!(cat, "{0} boosted your article."; &name),
         _ => unreachable!("translate_notification: Unknow type"),
     }
 }
@@ -136,9 +136,16 @@ impl Size {
     }
 }
 
+pub fn default_avatar(avatar_url: &Option<String>) -> &str {
+    match avatar_url {
+        Some(url) => url,
+        None => &"/static/images/default-avatar.png"
+    }
+}
+
 pub fn avatar(
-    conn: &mut Connection,
     user: &User,
+    avatar_url: &Option<String>,
     size: Size,
     pad: bool,
     catalog: &Catalog,
@@ -152,7 +159,7 @@ pub fn avatar(
         <img class="hidden u-photo" src="{url}"/>"#,
         size = size.as_str(),
         padded = if pad { "padded" } else { "" },
-        url = user.avatar_url(conn),
+        url = default_avatar(avatar_url),
         title = i18n!(catalog, "{0}'s avatar"; name),
     ))
 }
@@ -384,4 +391,38 @@ impl Input {
                 })
         ))
     }
+}
+
+
+pub struct PostCard {
+    pub post: plume_models::posts::Post,
+    pub cover_url: String,
+    pub author: User,
+    pub is_author: bool,
+    pub blog: plume_models::blogs::Blog,
+    pub blog_fqn: String,
+    pub count_likes: i64,
+    pub count_reshares: i64,
+}
+
+
+impl PostCard {
+    pub fn from(conn: &mut DbConn, post: plume_models::posts::Post, user: &Option<User>) -> PostCard {
+        let cover_url = post.cover_url(conn).unwrap_or_default();
+        let author = post.get_authors(conn).unwrap_or_default().swap_remove(0);
+        let is_author = user.as_ref().and_then(|u| post.is_author(conn, u.id).ok()).unwrap_or(false);
+        let blog = post.get_blog(conn).unwrap();
+        let blog_fqn = post.get_blog_fqn(conn);
+        let count_likes = post.count_likes(conn).unwrap_or_default();
+        let count_reshares = post.count_reshares(conn).unwrap_or_default();
+
+        PostCard {post, cover_url, author, is_author, blog, blog_fqn, count_likes, count_reshares}
+    }
+
+    pub fn from_posts(conn: &mut DbConn, posts: Vec<plume_models::posts::Post>, user: &Option<User>) -> Vec<PostCard> {
+        posts.into_iter()
+            .map(|p| PostCard::from(conn, p, user))
+            .collect()
+    }
+
 }

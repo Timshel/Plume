@@ -16,7 +16,7 @@ use crate::inbox as crate_inbox;
 use crate::routes::{
     email_signups::EmailSignupForm, errors::ErrorPage, Page, RemoteForm, RespondOrRedirect,
 };
-use crate::template_utils::{IntoContext, Ructe};
+use crate::template_utils::{default_avatar, IntoContext, PostCard, Ructe};
 use crate::utils::requires_login;
 use plume_common::activity_pub::{broadcast, ActivityStream, ApRequest, CustomPerson};
 use plume_common::utils::md_to_html;
@@ -47,8 +47,9 @@ pub fn me(user: Option<User>) -> RespondOrRedirect {
 #[get("/@/<name>", rank = 2)]
 pub fn details(name: String, rockets: PlumeRocket, mut conn: DbConn) -> Result<Ructe, ErrorPage> {
     let user = User::find_by_fqn(&mut conn, &name)?;
+    let avatar_url = default_avatar(&user.avatar_url(&mut conn)).to_string();
     let recents = Post::get_recents_for_author(&mut conn, &user, 6)?;
-    let reshares = Reshare::get_recents_for_author(&mut conn, &user, 6)?;
+    let pc_recents = PostCard::from_posts(&mut conn, recents, &rockets.user);
 
     if !user.get_instance(&mut conn)?.local {
         tracing::trace!("remote user found");
@@ -59,31 +60,40 @@ pub fn details(name: String, rockets: PlumeRocket, mut conn: DbConn) -> Result<R
         .clone()
         .and_then(|x| x.is_following(&mut conn, user.id).ok())
         .unwrap_or(false);
+    let is_remote = user.instance_id != Instance::get_local()?.id;
     let public_domain = user.get_instance(&mut conn)?.public_domain;
-    let reshared = reshares
+    let reshared = Reshare::get_recents_for_author(&mut conn, &user, 6)?
         .into_iter()
         .filter_map(|r| r.get_post(&mut conn).ok())
         .collect();
+    let pc_reshared = PostCard::from_posts(&mut conn, reshared, &rockets.user);
 
     Ok(render!(users::details_html(
         &(&mut conn, &rockets).to_context(),
-        user.clone(),
+        user,
+        avatar_url,
         is_following,
-        user.instance_id != Instance::get_local()?.id,
+        is_remote,
         public_domain,
-        recents,
-        reshared
+        pc_recents,
+        pc_reshared
     )))
 }
 
 #[get("/dashboard")]
 pub fn dashboard(user: User, mut conn: DbConn, rockets: PlumeRocket) -> Result<Ructe, ErrorPage> {
-    let blogs = Blog::find_for_author(&mut conn, &user)?;
+    let blogs = Blog::find_for_author(&mut conn, &user)?.into_iter().map(|b| {
+        let banner = b.banner_url(&mut conn).unwrap_or_default();
+        (b, banner)
+    }).collect();
+
     let drafts = Post::drafts_by_author(&mut conn, &user)?;
+    let pc = PostCard::from_posts(&mut conn, drafts, &rockets.user);
+
     Ok(render!(users::dashboard_html(
         &(&mut conn, &rockets).to_context(),
         blogs,
-        drafts
+        pc
     )))
 }
 
@@ -151,6 +161,7 @@ pub fn follow_not_connected(
     i18n: I18n,
 ) -> Result<RespondOrRedirect, ErrorPage> {
     let target = User::find_by_fqn(&mut conn, &name)?;
+    let avatar_url = target.avatar_url(&mut conn);
     if let Some(remote_form) = remote_form {
         if let Some(uri) = User::fetch_remote_interact_uri(&remote_form)
             .ok()
@@ -173,6 +184,7 @@ pub fn follow_not_connected(
                 render!(users::follow_remote_html(
                     &(&mut conn, &rockets).to_context(),
                     target,
+                    avatar_url,
                     super::session::LoginForm::default(),
                     ValidationErrors::default(),
                     remote_form.clone(),
@@ -188,6 +200,7 @@ pub fn follow_not_connected(
             render!(users::follow_remote_html(
                 &(&mut conn, &rockets).to_context(),
                 target,
+                avatar_url,
                 super::session::LoginForm::default(),
                 ValidationErrors::default(),
                 #[allow(clippy::map_clone)]
@@ -221,20 +234,23 @@ pub fn followers(
 ) -> Result<Ructe, ErrorPage> {
     let page = page.unwrap_or_default();
     let user = User::find_by_fqn(&mut conn, &name)?;
+    let avatar_url = user.avatar_url(&mut conn);
     let followers_count = user.count_followers(&mut conn)?;
     let is_following = rockets.user
         .clone()
         .and_then(|x| x.is_following(&mut conn, user.id).ok())
         .unwrap_or(false);
+    let is_remote = user.instance_id != Instance::get_local()?.id;
     let public_domain = user.get_instance(&mut conn)?.public_domain;
     let followers_page = user.get_followers_page(&mut conn, page.limits())?;
     let page_total = Page::total(followers_count as i32);
 
     Ok(render!(users::followers_html(
         &(&mut conn, &rockets).to_context(),
-        user.clone(),
+        user,
+        avatar_url,
         is_following,
-        user.instance_id != Instance::get_local()?.id,
+        is_remote,
         public_domain,
         followers_page,
         page.0,
@@ -251,12 +267,14 @@ pub fn followed(
 ) -> Result<Ructe, ErrorPage> {
     let page = page.unwrap_or_default();
     let user = User::find_by_fqn(&mut conn, &name)?;
+    let avatar_url = user.avatar_url(&mut conn);
     let followed_count = user.count_followed(&mut conn)?;
 
     let is_following = rockets.user
         .clone()
         .and_then(|x| x.is_following(&mut conn, user.id).ok())
         .unwrap_or(false);
+    let is_remote = user.instance_id != Instance::get_local()?.id;
 
     let public_domain = user.get_instance(&mut conn)?.public_domain;
     let followed_page = user.get_followed_page(&mut conn, page.limits())?;
@@ -264,9 +282,10 @@ pub fn followed(
 
     Ok(render!(users::followed_html(
         &(&mut conn, &rockets).to_context(),
-        user.clone(),
+        user,
+        avatar_url,
         is_following,
-        user.instance_id != Instance::get_local()?.id,
+        is_remote,
         public_domain,
         followed_page,
         page.0,

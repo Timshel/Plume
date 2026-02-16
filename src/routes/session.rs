@@ -97,7 +97,7 @@ pub fn create(
         .into()
     } else {
         render!(session::login_html(
-            &(&mut conn, &rockets.intl.catalog, None, None),
+            &(None, &rockets.intl.catalog, None, None),
             None,
             &*form,
             errors

@@ -1,11 +1,10 @@
 @use plume_models::instance::Instance;
 @use plume_models::users::User;
-@use plume_models::posts::Post;
 @use crate::templates::{base_html, partials::post_card_html, users::header_html};
 @use crate::template_utils::*;
 @use crate::routes::*;
 
-@(ctx: BaseContext, user: User, follows: bool, is_remote: bool, remote_url: String, recents: Vec<Post>, reshares: Vec<Post>)
+@(ctx: BaseContext, user: User, avatar_url: String, follows: bool, is_remote: bool, remote_url: String, recents: Vec<PostCard>, reshares: Vec<PostCard>)
 
 @:base_html(ctx, user.name(), {
 	<meta content="profile" property="og:type" />
@@ -18,13 +17,13 @@
 	<meta content="@user.display_name's Blog" property="og:title" />
 	<meta content="@user.summary_html" name="description">
 	<meta content="@user.summary_html" property="og:description" />
-	<meta content="@user.avatar_url(ctx.0)" property="og:image" />
+	<meta content="@avatar_url" property="og:image" />
 
 	<link href='@Instance::get_local().unwrap().compute_box("@", &user.fqn, "atom.xml")' rel='alternate' type='application/atom+xml'>
 	<link href='@user.ap_url' rel='alternate' type='application/activity+json'>
     <link rel="canonical"  href="@user.ap_url"/>
 }, {}, {
-    @:header_html(ctx, &user, follows, is_remote, remote_url)
+    @:header_html(ctx, &user, &Some(avatar_url.clone()), follows, is_remote, remote_url)
 
     @tabs(&[
         (&uri!(user::details(name = &user.fqn)).to_string(), i18n!(ctx.1, "Articles"), true),

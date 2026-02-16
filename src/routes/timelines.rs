@@ -2,7 +2,7 @@
 
 use crate::routes::Page;
 use crate::template_utils::IntoContext;
-use crate::{routes::errors::ErrorPage, template_utils::Ructe};
+use crate::{routes::errors::ErrorPage, template_utils::{PostCard, Ructe}};
 use plume_models::{db_conn::DbConn, timeline::*, PlumeRocket};
 use rocket::response::Redirect;
 
@@ -16,8 +16,11 @@ pub fn details(
     let page = page.unwrap_or_default();
     let all_tl = Timeline::list_all_for_user(&mut conn, rockets.user.clone().map(|u| u.id))?;
     let tl = Timeline::get(&mut conn, id)?;
-    let posts = tl.get_page(&mut conn, page.limits())?;
     let total_posts = tl.count_posts(&mut conn)?;
+
+    let pages = tl.get_page(&mut conn, page.limits())?;
+    let posts = PostCard::from_posts(&mut conn, pages, &rockets.user);
+
     Ok(render!(timelines::details_html(
         &(&mut conn, &rockets).to_context(),
         tl,

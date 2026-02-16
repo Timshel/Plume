@@ -11,7 +11,7 @@ use validator::{Validate, ValidationErrors};
 
 use crate::inbox;
 use crate::routes::{errors::ErrorPage, rocket_uri_macro_static_files, Page, RespondOrRedirect};
-use crate::template_utils::{IntoContext, Ructe};
+use crate::template_utils::{IntoContext, PostCard, Ructe};
 use plume_common::activity_pub::{broadcast, inbox::FromId};
 use plume_models::{
     admin::*,
@@ -36,10 +36,12 @@ pub fn index(mut conn: DbConn, rockets: PlumeRocket) -> Result<Ructe, ErrorPage>
         let inst = Instance::get_local()?;
         let page = Page::default();
         let tl = &all_tl[0];
-        let posts = tl.get_page(&mut conn, page.limits())?;
         let total_posts = tl.count_posts(&mut conn)?;
         let user_count = User::count_local(&mut conn)?;
         let post_count = Post::count_local(&mut conn)?;
+
+        let pages = tl.get_page(&mut conn, page.limits())?;
+        let posts = PostCard::from_posts(&mut conn, pages, &rockets.user);
 
         Ok(render!(instance::index_html(
             &(&mut conn, &rockets).to_context(),
@@ -173,12 +175,19 @@ pub fn admin_users(
     rockets: PlumeRocket,
 ) -> Result<Ructe, ErrorPage> {
     let page = page.unwrap_or_default();
-    let local_page = User::get_local_page(&mut conn, page.limits())?;
     let page_total = Page::total(User::count_local(&mut conn)? as i32);
+
+    let users = User::get_local_page(&mut conn, page.limits())?
+        .into_iter()
+        .map(|u| {
+            let avatar_url = u.avatar_url(&mut conn);
+            (u, avatar_url)
+        })
+        .collect();
 
     Ok(render!(instance::users_html(
         &(&mut conn, &rockets).to_context(),
-        local_page,
+        users,
         None,
         page.0,
         page_total
@@ -193,12 +202,18 @@ pub fn admin_search_users(
     rockets: PlumeRocket,
 ) -> Result<Ructe, ErrorPage> {
     let page = page.unwrap_or_default();
-    let users = if user.is_empty() {
+    let page_total = Page::total(User::count_local(&mut conn)? as i32);
+
+    let users = (if user.is_empty() {
         User::get_local_page(&mut conn, page.limits())?
     } else {
         User::search_local_by_name(&mut conn, &user, page.limits())?
-    };
-    let page_total = Page::total(User::count_local(&mut conn)? as i32);
+    }).into_iter()
+        .map(|u| {
+            let avatar_url = u.avatar_url(&mut conn);
+            (u, avatar_url)
+        })
+        .collect();
 
     Ok(render!(instance::users_html(
         &(&mut conn, &rockets).to_context(),
@@ -467,11 +482,13 @@ pub fn about(mut conn: DbConn, rockets: PlumeRocket) -> Result<Ructe, ErrorPage>
     let count_user = User::count_local(&mut conn)?;
     let count_post = Post::count_local(&mut conn)?;
     let instance_count = Instance::count(&mut conn)? - 1;
+    let avatar_url = admin.avatar_url(&mut conn);
 
     Ok(render!(instance::about_html(
         &(&mut conn, &rockets).to_context(),
         Instance::get_local()?,
         admin,
+        avatar_url,
         count_user,
         count_post,
         instance_count

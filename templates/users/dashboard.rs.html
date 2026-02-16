@@ -1,10 +1,9 @@
 @use plume_models::blogs::Blog;
-@use plume_models::posts::Post;
 @use crate::templates::{base_html, partials::post_card_html};
 @use crate::template_utils::*;
 @use crate::routes::*;
 
-@(ctx: BaseContext, blogs: Vec<Blog>, drafts: Vec<Post>)
+@(ctx: BaseContext, blogs: Vec<(Blog, String)>, drafts: Vec<PostCard>)
 
 @:base_html(ctx, i18n!(ctx.1, "Your Dashboard"), {}, {}, {
     <h1>@i18n!(ctx.1, "Your Dashboard")</h1>
@@ -15,11 +14,11 @@
             <p>@i18n!(ctx.1, "You don't have any blog yet. Create your own, or ask to join one.")</p>
         }
         <div class="cards">
-            @for blog in blogs {
+            @for (blog, banner) in blogs {
                 <div class="card">
                     @if blog.banner_id.is_some() {
                         <a class="cover-link" href="@uri!(blogs::details(name = &blog.actor_id, page = _))">
-                            <div class="cover" style="background-image: url('@Html(blog.banner_url(ctx.0).unwrap_or_default())')">
+                            <div class="cover" style="background-image: url('@Html(banner)')">
                             </div>
                         </a>
                     }

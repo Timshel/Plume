@@ -859,10 +859,9 @@ impl User {
         Ok(del)
     }
 
-    pub fn avatar_url(&self, conn: &mut Connection) -> String {
+    pub fn avatar_url(&self, conn: &mut Connection) -> Option<String> {
         self.avatar_id
             .and_then(|id| Media::get(conn, id).and_then(|m| m.url()).ok())
-            .unwrap_or_else(|| "/static/images/default-avatar.png".to_string())
     }
 
     pub fn webfinger(&self, conn: &mut Connection) -> Result<Webfinger> {

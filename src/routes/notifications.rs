@@ -14,12 +14,22 @@ pub fn notifications(
     rockets: PlumeRocket,
 ) -> Result<Ructe, ErrorPage> {
     let page = page.unwrap_or_default();
-    let page_user = Notification::page_for_user(&mut conn, &user, page.limits())?;
     let page_total = Page::total(Notification::count_for_user(&mut conn, &user)? as i32);
+
+    let notifs = Notification::page_for_user(&mut conn, &user, page.limits())?
+        .into_iter()
+        .map(|n| {
+            let actor = n.get_actor(&mut conn).ok();
+            let url = n.get_url(&mut conn);
+            let post = n.get_post(&mut conn);
+            let post_url = post.as_ref().and_then(|p| p.url(&mut conn).ok()).unwrap_or_default();
+            (n, actor, url, post, post_url)
+        })
+        .collect();
 
     Ok(render!(notifications::index_html(
         &(&mut conn, &rockets).to_context(),
-        page_user,
+        notifs,
         page.0,
         page_total
     )))

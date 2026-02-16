@@ -10,13 +10,13 @@
 @use crate::routes::comments::NewCommentForm;
 @use crate::routes::*;
 
-@(ctx: BaseContext, article: Post, blog: Blog, comment_form: &NewCommentForm, comment_errors: ValidationErrors, tags: Vec<Tag>, comments: Vec<CommentTree>, previous_comment: Option<Comment>, n_likes: i64, n_reshares: i64, has_liked: bool, has_reshared: bool, is_following: bool, author: User)
+@(ctx: BaseContext, article: Post, cover_url: String, blog: Blog, comment_form: &NewCommentForm, comment_errors: ValidationErrors, tags: Vec<Tag>, comments: Vec<CommentTree>, previous_comment: Option<Comment>, n_likes: i64, n_reshares: i64, has_liked: bool, has_reshared: bool, is_following: bool, author: User, author_avatar_url: Option<String>, is_author: bool)
 
 @:base_html(ctx, article.title.clone(), {
     <meta property="og:title" content="@article.title"/>
     <meta property="og:type" content="article"/>
     @if article.cover_id.is_some() {
-        <meta property="og:image" content="@Html(article.cover_url(ctx.0).unwrap_or_default())"/>
+        <meta property="og:image" content="@Html(&cover_url)"/>
     }
     <meta property="og:url" content="@uri!(posts::details(blog = &blog.fqn, slug = &article.slug, responding_to = _))"/>
     <meta property="og:description" content="@article.subtitle"/>
@@ -33,7 +33,7 @@
 <div class="h-entry">
     <header
         class="article @if article.cover_id.is_some() { illustrated }"
-        @if article.cover_id.is_some() { style="background-image: url('@article.cover_url(ctx.0).unwrap_or_default()'" }
+        @if article.cover_id.is_some() { style="background-image: url('@cover_url'" }
     >
         <div>
             <h1 class="article p-name" dir="auto">@article.title</h1>
@@ -50,7 +50,7 @@
         </div>
         @if article.cover_id.is_some() {
             <div class="shadow"></div>
-            <img class="u-photo hidden" src="@article.cover_url(ctx.0).unwrap_or_default()"/>
+            <img class="u-photo hidden" src="@cover_url"/>
         }
     </header>
 
@@ -125,7 +125,7 @@
         }
         <section class="banner">
             <div class="flex p-author h-card user" dir="auto">
-                @avatar(ctx.0, &author, Size::Medium, true, ctx.1)
+                @avatar(&author, &author_avatar_url, Size::Medium, true, ctx.1)
                 <div class="grow">
                     <h2 class="p-name">
                         <a href="@uri!(user::details(name = &author.fqn))">@author.name()</a>
@@ -170,7 +170,7 @@
         </section>
     </div>
 </div>
-@if  ctx.2.clone().and_then(|u| article.is_author(ctx.0, u.id).ok()).unwrap_or(false) {
+@if is_author {
     <aside class="bottom-bar">
         <div>
             <form class="inline" method="post" action="@uri!(posts::delete(blog_name = &blog.fqn, slug = &article.slug))">

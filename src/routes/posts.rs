@@ -12,7 +12,7 @@ use validator::{Validate, ValidationError, ValidationErrors};
 use crate::routes::{
     comments::NewCommentForm, errors::ErrorPage, ContentLen, RemoteForm, RespondOrRedirect,
 };
-use crate::template_utils::{IntoContext, Ructe};
+use crate::template_utils::{IntoContext, PostCard, Ructe};
 use crate::utils::requires_login;
 use plume_common::activity_pub::{broadcast, ActivityStream, ApRequest, LicensedArticle};
 use plume_common::utils::md_to_html;
@@ -85,14 +85,19 @@ pub fn details(
     let tags = Tag::for_post(&mut conn, post.id)?;
     let likes = post.count_likes(&mut conn)?;
     let reshares = post.count_reshares(&mut conn)?;
-    let has_liked = user.clone().and_then(|u| u.has_liked(&mut conn, &post).ok()).unwrap_or(false);
-    let has_reshared = user.clone().and_then(|u| u.has_reshared(&mut conn, &post).ok()).unwrap_or(false);
+    let has_liked = user.as_ref().and_then(|u| u.has_liked(&mut conn, &post).ok()).unwrap_or(false);
+    let has_reshared = user.as_ref().and_then(|u| u.has_reshared(&mut conn, &post).ok()).unwrap_or(false);
     let author = post.get_authors(&mut conn)?.swap_remove(0);
-    let is_following = user.and_then(|u| u.is_following(&mut conn, author.id).ok()).unwrap_or(false);
+    let is_following = user.as_ref().and_then(|u| u.is_following(&mut conn, author.id).ok()).unwrap_or(false);
+
+    let cover_url = post.cover_url(&mut conn).unwrap_or_default();
+    let author_avatar_url = author.avatar_url(&mut conn);
+    let is_author = user.as_ref().and_then(|u| post.is_author(&mut conn, u.id).ok()).unwrap_or(false);
 
     Ok(render!(posts::details_html(
             &(&mut conn, &rockets).to_context(),
-            post.clone(),
+            post,
+            cover_url,
             blog,
             &comment_form,
             ValidationErrors::default(),
@@ -104,7 +109,9 @@ pub fn details(
             has_liked,
             has_reshared,
             is_following,
-            author
+            author,
+            author_avatar_url,
+            is_author
         )))
 }
 
@@ -652,9 +659,11 @@ pub fn remote_interact(
 ) -> Result<Ructe, ErrorPage> {
     let target = Blog::find_by_fqn(&mut conn, &blog_name)
         .and_then(|blog| Post::find_by_slug(&mut conn, &slug, blog.id))?;
+    let pc = PostCard::from(&mut conn, target, &rockets.user);
+
     Ok(render!(posts::remote_interact_html(
         &(&mut conn, &rockets).to_context(),
-        target,
+        pc,
         super::session::LoginForm::default(),
         ValidationErrors::default(),
         RemoteForm::default(),
@@ -672,6 +681,7 @@ pub fn remote_interact_post(
 ) -> Result<RespondOrRedirect, ErrorPage> {
     let target = Blog::find_by_fqn(&mut conn, &blog_name)
         .and_then(|blog| Post::find_by_slug(&mut conn, &slug, blog.id))?;
+
     if let Some(uri) = User::fetch_remote_interact_uri(&remote.remote)
         .ok()
         .map(|uri| {
@@ -687,10 +697,13 @@ pub fn remote_interact_post(
             message: Some(Cow::from(i18n!(rockets.intl.catalog, "Couldn't obtain enough information about your account. Please make sure your username is correct."))),
             params: HashMap::new(),
         });
+
+        let pc = PostCard::from(&mut conn, target, &rockets.user);
+
         //could not get your remote url?
         Ok(render!(posts::remote_interact_html(
             &(&mut conn, &rockets).to_context(),
-            target,
+            pc,
             super::session::LoginForm::default(),
             ValidationErrors::default(),
             remote.clone(),
