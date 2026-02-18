@@ -2,7 +2,7 @@
 @use crate::template_utils::*;
 @use crate::routes::*;
 
-@(ctx: BaseContext, comment_tree: &CommentTree, in_reply_to: Option<&str>, blog: &str, slug: &str)
+@(ctx: BaseContext, comment_tree: &CommentTree, in_reply_to: Option<&String>, blog: &str, slug: &str)
 
 @if let Some(comm) = Some(&comment_tree.comment) {
 @if let Some(author) = comment_tree.comment_author.as_ref() {
@@ -43,8 +43,5 @@
     	    </form>
         }
     </main>
-    @for res in &comment_tree.responses {
-        @:comment_html(ctx, res, comm.ap_url.as_deref(), blog, slug)
-    }
-</div>
+@* </div> -- Closed by template_utils::render_comment *@
 }}

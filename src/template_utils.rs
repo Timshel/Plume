@@ -1,4 +1,4 @@
-use plume_models::{db_conn::DbConn, notifications::*, users::User, PlumeRocket};
+use plume_models::{db_conn::DbConn, comments::CommentTree, notifications::*, users::User, PlumeRocket};
 
 use crate::templates::Html;
 use gettext::Catalog;
@@ -162,6 +162,25 @@ pub fn avatar(
         url = default_avatar(avatar_url),
         title = i18n!(catalog, "{0}'s avatar"; name),
     ))
+}
+
+pub fn render_comments(ctx: BaseContext, comments: Vec<CommentTree>, in_reply_to: &String, blog: &str, slug: &str) -> Html<String> {
+    let mut res: Vec<u8> = vec![];
+
+    for comment in comments {
+        render_comment(&mut res, ctx, comment, Some(in_reply_to), blog, slug);
+    }
+
+    Html(String::from_utf8(res).unwrap())
+}
+
+pub fn render_comment(res: &mut Vec<u8>, ctx: BaseContext, ct: CommentTree, in_reply_to: Option<&String>, blog: &str, slug: &str) {
+    crate::templates::partials::comment_head_html(&mut *res, ctx, &ct, in_reply_to, blog, slug).unwrap();
+    let ap_url = ct.comment.ap_url;
+    for comment in ct.responses {
+        render_comment(res, ctx, comment, ap_url.as_ref(), blog, slug);
+    }
+    res.append(&mut "</div>".as_bytes().to_owned());
 }
 
 pub fn tabs(links: &[(impl AsRef<str>, String, bool)]) -> Html<String> {

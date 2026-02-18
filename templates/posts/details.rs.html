@@ -5,7 +5,7 @@
 @use plume_models::users::User;
 @use std::path::Path;
 @use validator::ValidationErrors;
-@use crate::templates::{base_html, partials::comment_html};
+@use crate::templates::{base_html};
 @use crate::template_utils::*;
 @use crate::routes::comments::NewCommentForm;
 @use crate::routes::*;
@@ -161,9 +161,7 @@
             }
 
             @if !comments.is_empty() {
-                @for comm in comments {
-                    @:comment_html(ctx, &comm, Some(&article.ap_url), &blog.fqn, &article.slug)
-                }
+                @render_comments(ctx, comments, &article.ap_url, &blog.fqn, &article.slug)
             } else {
                 <p class="center" dir="auto">@i18n!(ctx.1, "No comments yet. Be the first to react!")</p>
             }
