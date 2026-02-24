@@ -80,7 +80,7 @@ pub fn command<'a, 'b>() -> App<'a, 'b> {
         )
 }
 
-pub fn run<'a>(args: &ArgMatches<'a>, conn: &Connection) {
+pub fn run<'a>(args: &ArgMatches<'a>, conn: &mut Connection) {
     let conn = conn;
     match args.subcommand() {
         ("new", Some(x)) => new(x, conn),
@@ -90,7 +90,7 @@ pub fn run<'a>(args: &ArgMatches<'a>, conn: &Connection) {
     }
 }
 
-fn new<'a>(args: &ArgMatches<'a>, conn: &Connection) {
+fn new<'a>(args: &ArgMatches<'a>, conn: &mut Connection) {
     let username = args
         .value_of("name")
         .map(String::from)
@@ -136,7 +136,7 @@ fn new<'a>(args: &ArgMatches<'a>, conn: &Connection) {
     .expect("Couldn't save new user");
 }
 
-fn reset_password<'a>(args: &ArgMatches<'a>, conn: &Connection) {
+fn reset_password<'a>(args: &ArgMatches<'a>, conn: &mut Connection) {
     let username = args
         .value_of("name")
         .map(String::from)

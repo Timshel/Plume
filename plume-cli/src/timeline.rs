@@ -119,7 +119,7 @@ pub fn command<'a, 'b>() -> App<'a, 'b> {
         )
 }
 
-pub fn run<'a>(args: &ArgMatches<'a>, conn: &Connection) {
+pub fn run<'a>(args: &ArgMatches<'a>, conn: &mut Connection) {
     let conn = conn;
     match args.subcommand() {
         ("new", Some(x)) => new(x, conn),
@@ -167,13 +167,13 @@ fn get_preload_count(args: &ArgMatches<'_>) -> usize {
         .unwrap_or(plume_models::ITEMS_PER_PAGE as usize)
 }
 
-fn resolve_user(username: &str, conn: &Connection) -> User {
+fn resolve_user(username: &str, conn: &mut Connection) -> User {
     let instance = Instance::get_local_uncached(conn).expect("Failed to load local instance");
 
     User::find_by_name(conn, username, instance.id).expect("User not found")
 }
 
-fn preload(timeline: Timeline, count: usize, conn: &Connection) {
+fn preload(timeline: Timeline, count: usize, conn: &mut Connection) {
     timeline.remove_all_posts(conn).unwrap();
 
     if count == 0 {
@@ -199,7 +199,7 @@ fn preload(timeline: Timeline, count: usize, conn: &Connection) {
     }
 }
 
-fn new(args: &ArgMatches<'_>, conn: &Connection) {
+fn new(args: &ArgMatches<'_>, conn: &mut Connection) {
     let (name, user) = get_timeline_identifier(args);
     let query = get_query(args);
     let preload_count = get_preload_count(args);
@@ -216,7 +216,7 @@ fn new(args: &ArgMatches<'_>, conn: &Connection) {
     preload(timeline, preload_count, conn);
 }
 
-fn edit(args: &ArgMatches<'_>, conn: &Connection) {
+fn edit(args: &ArgMatches<'_>, conn: &mut Connection) {
     let (name, user) = get_timeline_identifier(args);
     let query = get_query(args);
 
@@ -230,7 +230,7 @@ fn edit(args: &ArgMatches<'_>, conn: &Connection) {
     timeline.update(conn).expect("Failed to update timeline");
 }
 
-fn delete(args: &ArgMatches<'_>, conn: &Connection) {
+fn delete(args: &ArgMatches<'_>, conn: &mut Connection) {
     let (name, user) = get_timeline_identifier(args);
 
     if !args.is_present("yes") {
@@ -245,7 +245,7 @@ fn delete(args: &ArgMatches<'_>, conn: &Connection) {
     timeline.delete(conn).expect("Failed to update timeline");
 }
 
-fn repopulate(args: &ArgMatches<'_>, conn: &Connection) {
+fn repopulate(args: &ArgMatches<'_>, conn: &mut Connection) {
     let (name, user) = get_timeline_identifier(args);
     let preload_count = get_preload_count(args);
 

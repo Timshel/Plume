@@ -28,25 +28,25 @@ fn main() {
         Err(ref e) if e.not_found() => eprintln!("no .env was found"),
         e => e.map(|_| ()).unwrap(),
     }
-    let conn = Conn::establish(CONFIG.database_url.as_str());
-    let _ = conn.as_ref().map(Instance::cache_local);
+    let mut conn = Conn::establish(CONFIG.database_url.as_str()).expect("Couldn't connect to the database.");
+    let _ = Instance::cache_local(&mut conn);
 
     match matches.subcommand() {
         ("instance", Some(args)) => {
-            instance::run(args, &conn.expect("Couldn't connect to the database."))
+            instance::run(args, &mut conn)
         }
         ("migration", Some(args)) => {
-            migration::run(args, &conn.expect("Couldn't connect to the database."))
+            migration::run(args, &mut conn)
         }
         ("search", Some(args)) => {
-            search::run(args, &conn.expect("Couldn't connect to the database."))
+            search::run(args, &mut conn)
         }
         ("timeline", Some(args)) => {
-            timeline::run(args, &conn.expect("Couldn't connect to the database."))
+            timeline::run(args, &mut conn)
         }
-        ("lists", Some(args)) => list::run(args, &conn.expect("Couldn't connect to the database.")),
+        ("lists", Some(args)) => list::run(args, &mut conn),
         ("users", Some(args)) => {
-            users::run(args, &conn.expect("Couldn't connect to the database."))
+            users::run(args, &mut conn)
         }
         _ => app.print_help().expect("Couldn't print help"),
     };

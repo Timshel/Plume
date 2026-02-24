@@ -52,7 +52,7 @@ pub fn command<'a, 'b>() -> App<'a, 'b> {
         )
 }
 
-pub fn run<'a>(args: &ArgMatches<'a>, conn: &Connection) {
+pub fn run<'a>(args: &ArgMatches<'a>, conn: &mut Connection) {
     let conn = conn;
     match args.subcommand() {
         ("init", Some(x)) => init(x, conn),
@@ -63,7 +63,7 @@ pub fn run<'a>(args: &ArgMatches<'a>, conn: &Connection) {
     }
 }
 
-fn init<'a>(args: &ArgMatches<'a>, conn: &Connection) {
+fn init<'a>(args: &ArgMatches<'a>, conn: &mut Connection) {
     let path = args
         .value_of("path")
         .map(|p| Path::new(p).join("search_index"))
@@ -92,7 +92,7 @@ fn init<'a>(args: &ArgMatches<'a>, conn: &Connection) {
     }
 }
 
-fn refill<'a>(args: &ArgMatches<'a>, conn: &Connection, searcher: Option<Searcher>) {
+fn refill<'a>(args: &ArgMatches<'a>, conn: &mut Connection, searcher: Option<Searcher>) {
     let path = args.value_of("path");
     let path = match path {
         Some(path) => Path::new(path).join("search_index"),

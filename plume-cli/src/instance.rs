@@ -29,7 +29,7 @@ pub fn command<'a, 'b>() -> App<'a, 'b> {
             ).about("Create a new local instance"))
 }
 
-pub fn run<'a>(args: &ArgMatches<'a>, conn: &Connection) {
+pub fn run<'a>(args: &ArgMatches<'a>, conn: &mut Connection) {
     let conn = conn;
     match args.subcommand() {
         ("new", Some(x)) => new(x, conn),
@@ -38,7 +38,7 @@ pub fn run<'a>(args: &ArgMatches<'a>, conn: &Connection) {
     }
 }
 
-fn new<'a>(args: &ArgMatches<'a>, conn: &Connection) {
+fn new<'a>(args: &ArgMatches<'a>, conn: &mut Connection) {
     let domain = args
         .value_of("domain")
         .map(String::from)

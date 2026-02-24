@@ -12,7 +12,7 @@ itertools = "0.10.3"
 lazy_static = "1.0"
 ldap3 = "0.11.1"
 openssl = "0.10.40"
-rocket = { version = "0.5.1", features = ["json"], default-features = false }
+rocket = { version = "0.5.1", features = ["json", "secrets"], default-features = false }
 reqwest = "0.11.11"
 scheduled-thread-pool = "0.2.6"
 serde = "1.0.137"

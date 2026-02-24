@@ -108,7 +108,7 @@ pub fn command<'a, 'b>() -> App<'a, 'b> {
         )
 }
 
-pub fn run<'a>(args: &ArgMatches<'a>, conn: &Connection) {
+pub fn run<'a>(args: &ArgMatches<'a>, conn: &mut Connection) {
     let conn = conn;
     match args.subcommand() {
         ("new", Some(x)) => new(x, conn),
@@ -149,13 +149,13 @@ fn get_value(args: &ArgMatches<'_>) -> String {
         .expect("No query provided")
 }
 
-fn resolve_user(username: &str, conn: &Connection) -> User {
+fn resolve_user(username: &str, conn: &mut Connection) -> User {
     let instance = Instance::get_local_uncached(conn).expect("Failed to load local instance");
 
     User::find_by_name(conn, username, instance.id).expect("User not found")
 }
 
-fn new(args: &ArgMatches<'_>, conn: &Connection) {
+fn new(args: &ArgMatches<'_>, conn: &mut Connection) {
     let (name, user) = get_list_identifier(args);
     let typ = get_list_type(args);
 
@@ -164,7 +164,7 @@ fn new(args: &ArgMatches<'_>, conn: &Connection) {
     List::new(conn, &name, user.as_ref(), typ).expect("failed to create list");
 }
 
-fn delete(args: &ArgMatches<'_>, conn: &Connection) {
+fn delete(args: &ArgMatches<'_>, conn: &mut Connection) {
     let (name, user) = get_list_identifier(args);
 
     if !args.is_present("yes") {
@@ -179,7 +179,7 @@ fn delete(args: &ArgMatches<'_>, conn: &Connection) {
     list.delete(conn).expect("Failed to update list");
 }
 
-fn add(args: &ArgMatches<'_>, conn: &Connection) {
+fn add(args: &ArgMatches<'_>, conn: &mut Connection) {
     let (name, user) = get_list_identifier(args);
     let value = get_value(args);
 
@@ -214,7 +214,7 @@ fn add(args: &ArgMatches<'_>, conn: &Connection) {
     }
 }
 
-fn rm(args: &ArgMatches<'_>, conn: &Connection) {
+fn rm(args: &ArgMatches<'_>, conn: &mut Connection) {
     let (name, user) = get_list_identifier(args);
     let value = get_value(args);
 
