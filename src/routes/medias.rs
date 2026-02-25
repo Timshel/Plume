@@ -70,19 +70,8 @@ pub async fn upload(
 async fn save_uploaded_file<'r>(file: &mut TempFile<'r>) -> Result<Option<String>, plume_models::Error> {
     // Remove extension if it contains something else than just letters and numbers
     let ext = file
-        .raw_name()
-        .and_then(|f| f.as_str() )
-        .and_then(|f| {
-            f.rsplit('.')
-                .next()
-                .and_then(|ext| {
-                    if ext.chars().any(|c| !c.is_alphanumeric()) {
-                        None
-                    } else {
-                        Some(ext.to_lowercase())
-                    }
-                })
-        })
+        .content_type()
+        .map(|ct| ct.to_string().replace("/", "."))
         .unwrap_or_default();
 
     if CONFIG.s3.is_some() {
@@ -95,7 +84,7 @@ async fn save_uploaded_file<'r>(file: &mut TempFile<'r>) -> Result<Option<String
 
             let dest = format!("static/media/{}.{}", GUID::rand(), ext);
 
-            file.persist_to(&dest).await?;
+            file.move_copy_to(&dest).await?;
 
             let bytes = Cow::from(std::fs::read(&dest)?);
 
@@ -113,7 +102,7 @@ async fn save_uploaded_file<'r>(file: &mut TempFile<'r>) -> Result<Option<String
         }
     } else {
         let dest = format!("{}/{}.{}", CONFIG.media_directory, GUID::rand(), ext);
-        file.persist_to(&dest).await?;
+        file.move_copy_to(&dest).await?;
         Ok(Some(dest))
     }
 }
