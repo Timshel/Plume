@@ -225,127 +225,6 @@ msgstr ""
 msgid "You can't delete someone else's account."
 msgstr ""
 
-msgid "Plume"
-msgstr ""
-
-msgid "Menu"
-msgstr ""
-
-msgid "Search"
-msgstr ""
-
-msgid "Dashboard"
-msgstr ""
-
-msgid "Notifications"
-msgstr ""
-
-msgid "Log Out"
-msgstr ""
-
-msgid "My account"
-msgstr ""
-
-msgid "Log In"
-msgstr ""
-
-msgid "Register"
-msgstr ""
-
-msgid "About this instance"
-msgstr ""
-
-msgid "Privacy policy"
-msgstr ""
-
-msgid "Administration"
-msgstr ""
-
-msgid "Moderation"
-msgstr ""
-
-msgid "Documentation"
-msgstr ""
-
-msgid "Source code"
-msgstr ""
-
-msgid "Matrix room"
-msgstr ""
-
-msgid "{}'s icon"
-msgstr ""
-
-msgid "Edit"
-msgstr ""
-
-msgid "There's one author on this blog: "
-msgid_plural "There are {0} authors on this blog: "
-msgstr[0] ""
-
-msgid "Latest articles"
-msgstr ""
-
-msgid "No posts to see here yet."
-msgstr ""
-
-msgid "Edit \"{}\""
-msgstr ""
-
-msgid "Title"
-msgstr ""
-
-msgid "Description"
-msgstr ""
-
-msgid "Markdown syntax is supported"
-msgstr ""
-
-msgid "You can upload images to your gallery, to use them as blog icons, or banners."
-msgstr ""
-
-msgid "Upload images"
-msgstr ""
-
-msgid "Blog icon"
-msgstr ""
-
-msgid "Blog banner"
-msgstr ""
-
-msgid "Custom theme"
-msgstr ""
-
-msgid "Default theme"
-msgstr ""
-
-msgid "Error while loading theme selector."
-msgstr ""
-
-msgid "Update blog"
-msgstr ""
-
-msgid "Danger zone"
-msgstr ""
-
-msgid "Be very careful, any action taken here can't be reversed."
-msgstr ""
-
-msgid "Are you sure that you want to permanently delete this blog?"
-msgstr ""
-
-msgid "Permanently delete this blog"
-msgstr ""
-
-msgid "New Blog"
-msgstr ""
-
-msgid "Create a blog"
-msgstr ""
-
-msgid "Create blog"
-msgstr ""
-
 msgid "Registration"
 msgstr ""
 
@@ -415,24 +294,6 @@ msgstr ""
 msgid "Maybe it was too long."
 msgstr ""
 
-msgid "About {0}"
-msgstr ""
-
-msgid "Runs Plume {0}"
-msgstr ""
-
-msgid "Home to <em>{0}</em> people"
-msgstr ""
-
-msgid "Who wrote <em>{0}</em> articles"
-msgstr ""
-
-msgid "And are connected to <em>{0}</em> other instances"
-msgstr ""
-
-msgid "Administred by"
-msgstr ""
-
 msgid "Administration of {0}"
 msgstr ""
 
@@ -443,6 +304,9 @@ msgid "Allow anyone to register here"
 msgstr ""
 
 msgid "Short description"
+msgstr ""
+
+msgid "Markdown syntax is supported"
 msgstr ""
 
 msgid "Long description"
@@ -464,6 +328,9 @@ msgid "Users"
 msgstr ""
 
 msgid "Email blocklist"
+msgstr ""
+
+msgid "Moderation"
 msgstr ""
 
 msgid "Blocklisted Emails"
@@ -511,16 +378,13 @@ msgstr ""
 msgid "The user will be silently prevented from making an account"
 msgstr ""
 
-msgid "Welcome to {}"
-msgstr ""
-
-msgid "Nothing to see here yet."
-msgstr ""
-
 msgid "Unblock"
 msgstr ""
 
 msgid "Block"
+msgstr ""
+
+msgid "Privacy policy"
 msgstr ""
 
 msgid "If you are browsing this site as a visitor, no data about you is collected."
@@ -530,6 +394,30 @@ msgid "As a registered user, you have to provide your username (which does not h
 msgstr ""
 
 msgid "When you log in, we store two cookies, one to keep your session open, the second to prevent other people to act on your behalf. We don't store any other cookies."
+msgstr ""
+
+msgid "About {0}"
+msgstr ""
+
+msgid "Runs Plume {0}"
+msgstr ""
+
+msgid "Home to <em>{0}</em> people"
+msgstr ""
+
+msgid "Who wrote <em>{0}</em> articles"
+msgstr ""
+
+msgid "And are connected to <em>{0}</em> other instances"
+msgstr ""
+
+msgid "Administred by"
+msgstr ""
+
+msgid "Welcome to {}"
+msgstr ""
+
+msgid "Nothing to see here yet."
 msgstr ""
 
 msgid "Search users"
@@ -595,6 +483,9 @@ msgstr ""
 msgid "Media upload"
 msgstr ""
 
+msgid "Description"
+msgstr ""
+
 msgid "Useful for visually impaired people, as well as licensing information"
 msgstr ""
 
@@ -610,13 +501,7 @@ msgstr ""
 msgid "Send"
 msgstr ""
 
-msgid "Respond"
-msgstr ""
-
-msgid "Are you sure?"
-msgstr ""
-
-msgid "Delete this comment"
+msgid "Notifications"
 msgstr ""
 
 msgid "None"
@@ -640,6 +525,9 @@ msgstr ""
 msgid "Read the detailed rules"
 msgstr ""
 
+msgid "Edit"
+msgstr ""
+
 msgid "By {0}"
 msgstr ""
 
@@ -653,6 +541,66 @@ msgstr[0] ""
 msgid "One boost"
 msgid_plural "{0} boosts"
 msgstr[0] ""
+
+msgid "Respond"
+msgstr ""
+
+msgid "Are you sure?"
+msgstr ""
+
+msgid "Delete this comment"
+msgstr ""
+
+msgid "Publish"
+msgstr ""
+
+msgid "Classic editor (any changes will be lost)"
+msgstr ""
+
+msgid "Title"
+msgstr ""
+
+msgid "Subtitle"
+msgstr ""
+
+msgid "Content"
+msgstr ""
+
+msgid "You can upload media to your gallery, and then copy their Markdown code into your articles to insert them."
+msgstr ""
+
+msgid "Upload media"
+msgstr ""
+
+msgid "Tags, separated by commas"
+msgstr ""
+
+msgid "License"
+msgstr ""
+
+msgid "Illustration"
+msgstr ""
+
+msgid "This is a draft, don't publish it yet."
+msgstr ""
+
+msgid "Update"
+msgstr ""
+
+msgid "Update, or publish"
+msgstr ""
+
+msgid "Publish your post"
+msgstr ""
+
+msgid "Interact with {}"
+msgstr ""
+
+msgid "Log in to interact"
+msgstr ""
+
+msgid "Enter your full username to interact"
+msgstr ""
 
 msgid "Written by {0}"
 msgstr ""
@@ -702,67 +650,7 @@ msgstr ""
 msgid "Only you and other authors can edit this article."
 msgstr ""
 
-msgid "Publish"
-msgstr ""
-
-msgid "Classic editor (any changes will be lost)"
-msgstr ""
-
-msgid "Subtitle"
-msgstr ""
-
-msgid "Content"
-msgstr ""
-
-msgid "You can upload media to your gallery, and then copy their Markdown code into your articles to insert them."
-msgstr ""
-
-msgid "Upload media"
-msgstr ""
-
-msgid "Tags, separated by commas"
-msgstr ""
-
-msgid "License"
-msgstr ""
-
-msgid "Illustration"
-msgstr ""
-
-msgid "This is a draft, don't publish it yet."
-msgstr ""
-
-msgid "Update"
-msgstr ""
-
-msgid "Update, or publish"
-msgstr ""
-
-msgid "Publish your post"
-msgstr ""
-
-msgid "Interact with {}"
-msgstr ""
-
-msgid "Log in to interact"
-msgstr ""
-
-msgid "Enter your full username to interact"
-msgstr ""
-
-msgid "I'm from this instance"
-msgstr ""
-
-msgid "Username, or email"
-msgstr ""
-
-msgid "Log in"
-msgstr ""
-
-msgid "I'm from another instance"
-msgstr ""
-
-msgid "Continue to your instance"
+msgid "Search"
 msgstr ""
 
 msgid "Advanced search"
@@ -834,6 +722,12 @@ msgstr ""
 msgid "No more results for your query"
 msgstr ""
 
+msgid "Log in"
+msgstr ""
+
+msgid "Username, or email"
+msgstr ""
+
 msgid "Reset your password"
 msgstr ""
 
@@ -864,6 +758,51 @@ msgstr ""
 msgid "There are currently no articles with such a tag"
 msgstr ""
 
+msgid "Edit your account"
+msgstr ""
+
+msgid "Your Profile"
+msgstr ""
+
+msgid "To change your avatar, upload it to your gallery and then select from there."
+msgstr ""
+
+msgid "Upload an avatar"
+msgstr ""
+
+msgid "Display name"
+msgstr ""
+
+msgid "Summary"
+msgstr ""
+
+msgid "Theme"
+msgstr ""
+
+msgid "Default theme"
+msgstr ""
+
+msgid "Error while loading theme selector."
+msgstr ""
+
+msgid "Never load blogs custom themes"
+msgstr ""
+
+msgid "Update account"
+msgstr ""
+
+msgid "Danger zone"
+msgstr ""
+
+msgid "Be very careful, any action taken here can't be cancelled."
+msgstr ""
+
+msgid "Delete your account"
+msgstr ""
+
+msgid "Sorry, but as an admin, you can't leave your own instance."
+msgstr ""
+
 msgid "Your Dashboard"
 msgstr ""
 
@@ -891,46 +830,13 @@ msgstr ""
 msgid "Subscriptions"
 msgstr ""
 
+msgid "Latest articles"
+msgstr ""
+
 msgid "Atom feed"
 msgstr ""
 
 msgid "Recently boosted"
-msgstr ""
-
-msgid "Edit your account"
-msgstr ""
-
-msgid "Your Profile"
-msgstr ""
-
-msgid "To change your avatar, upload it to your gallery and then select from there."
-msgstr ""
-
-msgid "Upload an avatar"
-msgstr ""
-
-msgid "Display name"
-msgstr ""
-
-msgid "Summary"
-msgstr ""
-
-msgid "Theme"
-msgstr ""
-
-msgid "Never load blogs custom themes"
-msgstr ""
-
-msgid "Update account"
-msgstr ""
-
-msgid "Be very careful, any action taken here can't be cancelled."
-msgstr ""
-
-msgid "Delete your account"
-msgstr ""
-
-msgid "Sorry, but as an admin, you can't leave your own instance."
 msgstr ""
 
 msgid "Follow {}"
@@ -955,4 +861,98 @@ msgid "Edit your profile"
 msgstr ""
 
 msgid "Open on {0}"
+msgstr ""
+
+msgid "Edit \"{}\""
+msgstr ""
+
+msgid "You can upload images to your gallery, to use them as blog icons, or banners."
+msgstr ""
+
+msgid "Upload images"
+msgstr ""
+
+msgid "Blog icon"
+msgstr ""
+
+msgid "Blog banner"
+msgstr ""
+
+msgid "Custom theme"
+msgstr ""
+
+msgid "Update blog"
+msgstr ""
+
+msgid "Be very careful, any action taken here can't be reversed."
+msgstr ""
+
+msgid "Are you sure that you want to permanently delete this blog?"
+msgstr ""
+
+msgid "Permanently delete this blog"
+msgstr ""
+
+msgid "New Blog"
+msgstr ""
+
+msgid "Create a blog"
+msgstr ""
+
+msgid "Create blog"
+msgstr ""
+
+msgid "{}'s icon"
+msgstr ""
+
+msgid "There's one author on this blog: "
+msgid_plural "There are {0} authors on this blog: "
+msgstr[0] ""
+
+msgid "No posts to see here yet."
+msgstr ""
+
+msgid "I'm from this instance"
+msgstr ""
+
+msgid "I'm from another instance"
+msgstr ""
+
+msgid "Continue to your instance"
+msgstr ""
+
+msgid "Plume"
+msgstr ""
+
+msgid "Menu"
+msgstr ""
+
+msgid "Dashboard"
+msgstr ""
+
+msgid "Log Out"
+msgstr ""
+
+msgid "My account"
+msgstr ""
+
+msgid "Log In"
+msgstr ""
+
+msgid "Register"
+msgstr ""
+
+msgid "About this instance"
+msgstr ""
+
+msgid "Administration"
+msgstr ""
+
+msgid "Documentation"
+msgstr ""
+
+msgid "Source code"
+msgstr ""
+
+msgid "Matrix room"
 msgstr ""
