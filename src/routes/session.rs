@@ -1,8 +1,7 @@
 use crate::routes::RespondOrRedirect;
 use plume_models::lettre::Transport;
-use rocket::http::ext::IntoOwned;
 use rocket::{
-    http::{uri::Uri, Cookie, CookieJar, SameSite},
+    http::{Cookie, CookieJar, SameSite},
     form::Form,
     response::{Flash, Redirect},
     State,
@@ -89,21 +88,10 @@ pub fn create(
         )
         .unwrap_or_else(|| "/".to_owned());
 
-    if let Ok(uri) = Uri::parse_any(&destination).map(IntoOwned::into_owned) {
-        Flash::success(
-            Redirect::to(uri),
-            i18n!(&rockets.intl.catalog, "You are now connected."),
-        )
-        .into()
-    } else {
-        render!(session::login_html(
-            &(None, &rockets.intl.catalog, None, None),
-            None,
-            &*form,
-            errors
-        ))
-        .into()
-    }
+    Flash::success(
+        Redirect::to(destination),
+        i18n!(&rockets.intl.catalog, "You are now connected."),
+    ).into()
 }
 
 #[get("/logout")]
