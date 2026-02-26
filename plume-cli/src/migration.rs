@@ -1,22 +1,22 @@
-use clap::{App, ArgMatches, SubCommand};
+use clap::{ArgMatches, Command};
 
 use plume_models::Connection;
 
-pub fn command<'a, 'b>() -> App<'a, 'b> {
-    SubCommand::with_name("migration")
+pub fn command() -> Command {
+    Command::new("migration")
         .about("Manage migrations")
         .subcommand(
-            SubCommand::with_name("run").about("Run migrations"),
+            Command::new("run").about("Run migrations"),
         )
 }
 
-pub fn run<'a>(args: &ArgMatches<'a>, conn: &mut Connection) {
-    let conn = conn;
-    match args.subcommand() {
-        ("run", _) => run_(conn),
-        ("", _) => command().print_help().unwrap(),
-        _ => println!("Unknown subcommand"),
-    }
+pub fn run(mut args: ArgMatches, conn: &mut Connection) {
+    args.remove_subcommand().map(|(c, _)| {
+        match c.as_str() {
+            "run" => run_(conn),
+            _ => command().print_help().unwrap(),
+        }
+    }).unwrap_or_else(|| println!("Unknown subcommand") )
 }
 
 fn run_(conn: &mut Connection) {

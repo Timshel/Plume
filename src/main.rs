@@ -7,7 +7,7 @@ extern crate rocket;
 #[macro_use]
 extern crate serde_json;
 
-use clap::App;
+use clap::Command;
 use diesel::r2d2::ConnectionManager;
 use plume_models::{
     db_conn::{DbPool, PragmaForeignKey},
@@ -65,7 +65,7 @@ pub(crate) fn init_rocket() -> rocket::Rocket<rocket::Build> {
     }
     tracing_subscriber::fmt::init();
 
-    App::new("Plume")
+    Command::new("Plume")
         .bin_name("plume")
         .version(env!("CARGO_PKG_VERSION"))
         .about("Plume backend server")

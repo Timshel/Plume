@@ -1,4 +1,4 @@
-use clap::App;
+use clap::Command;
 use diesel::Connection;
 use plume_models::{instance::Instance, Connection as Conn, CONFIG};
 use std::io::{self, prelude::*};
@@ -11,7 +11,7 @@ mod timeline;
 mod users;
 
 fn main() {
-    let mut app = App::new("Plume CLI")
+    let mut app = Command::new("Plume CLI")
         .bin_name("plm")
         .version(env!("CARGO_PKG_VERSION"))
         .about("Collection of tools to manage your Plume instance.")
@@ -21,7 +21,7 @@ fn main() {
         .subcommand(timeline::command())
         .subcommand(list::command())
         .subcommand(users::command());
-    let matches = app.clone().get_matches();
+    let mut matches = app.clone().get_matches();
 
     match dotenv::dotenv() {
         Ok(path) => println!("Configuration read from {}", path.display()),
@@ -31,25 +31,18 @@ fn main() {
     let mut conn = Conn::establish(CONFIG.database_url.as_str()).expect("Couldn't connect to the database.");
     let _ = Instance::cache_local(&mut conn);
 
-    match matches.subcommand() {
-        ("instance", Some(args)) => {
-            instance::run(args, &mut conn)
+
+    matches.remove_subcommand().map(|(c, args)| {
+        match c.as_str() {
+            "instance" => instance::run(args, &mut conn),
+            "migration" => migration::run(args, &mut conn),
+            "search" => search::run(args, &mut conn),
+            "timeline" => timeline::run(args, &mut conn),
+            "lists" => list::run(args, &mut conn),
+            "users" => users::run(args, &mut conn),
+            _ => app.print_help().expect("Couldn't print help"),
         }
-        ("migration", Some(args)) => {
-            migration::run(args, &mut conn)
-        }
-        ("search", Some(args)) => {
-            search::run(args, &mut conn)
-        }
-        ("timeline", Some(args)) => {
-            timeline::run(args, &mut conn)
-        }
-        ("lists", Some(args)) => list::run(args, &mut conn),
-        ("users", Some(args)) => {
-            users::run(args, &mut conn)
-        }
-        _ => app.print_help().expect("Couldn't print help"),
-    };
+    }).unwrap_or_else(|| app.print_help().expect("Couldn't print help") );
 }
 
 pub fn ask_for(something: &str) -> String {
