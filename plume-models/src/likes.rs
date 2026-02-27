@@ -89,7 +89,7 @@ impl AsObject<User, LikeAct, &mut Connection> for Post {
     type Error = Error;
     type Output = Like;
 
-    fn activity(self, conn: &mut Connection, actor: User, id: &str) -> Result<Like> {
+    async fn activity(self, conn: &mut Connection, actor: User, id: &str) -> Result<Like> {
         let res = Like::insert(
             conn,
             NewLike {
@@ -100,7 +100,7 @@ impl AsObject<User, LikeAct, &mut Connection> for Post {
         )?;
         res.notify(conn)?;
 
-        Timeline::add_to_all_timelines(conn, &self, Kind::Like(&actor))?;
+        Timeline::add_to_all_timelines(conn, &self, &Kind::Like(actor)).await?;
         Ok(res)
     }
 }
@@ -113,7 +113,7 @@ impl FromId<Connection> for Like {
         Like::find_by_ap_url(conn, id)
     }
 
-    fn from_activity(conn: &mut Connection, act: LikeAct) -> Result<Self> {
+    async fn from_activity(conn: &mut Connection, act: LikeAct) -> Result<Self> {
         let like = NewLike {
             post_id: Post::from_id(
                 conn,
@@ -124,6 +124,7 @@ impl FromId<Connection> for Like {
                 None,
                 CONFIG.proxy(),
             )
+            .await
             .map_err(|(_, e)| e)?
             .id,
             user_id: User::from_id(
@@ -135,6 +136,7 @@ impl FromId<Connection> for Like {
                 None,
                 CONFIG.proxy(),
             )
+            .await
             .map_err(|(_, e)| e)?
             .id,
             ap_url: act
@@ -157,7 +159,7 @@ impl AsObject<User, Undo, &mut Connection> for Like {
     type Error = Error;
     type Output = ();
 
-    fn activity(self, conn: &mut Connection, actor: User, _id: &str) -> Result<()> {
+    async fn activity(self, conn: &mut Connection, actor: User, _id: &str) -> Result<()> {
         if actor.id == self.user_id {
             diesel::delete(&self).execute(conn)?;
 

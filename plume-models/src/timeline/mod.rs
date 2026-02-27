@@ -218,13 +218,13 @@ impl Timeline {
             .map_err(Error::from)
     }
 
-    pub fn add_to_all_timelines(conn: &mut Connection, post: &Post, kind: Kind<'_>) -> Result<()> {
+    pub async fn add_to_all_timelines(conn: &mut Connection, post: &Post, kind: &Kind) -> Result<()> {
         let timelines = timeline_definition::table
             .load::<Self>(conn)
             .map_err(Error::from)?;
 
         for t in timelines {
-            if t.matches(conn, post, kind)? {
+            if t.matches(conn, post, kind).await? {
                 t.add_post(conn, post)?;
             }
         }
@@ -263,9 +263,9 @@ impl Timeline {
         Ok(count as u64)
     }
 
-    pub fn matches(&self, conn: &mut Connection, post: &Post, kind: Kind<'_>) -> Result<bool> {
+    pub async fn matches(&self, conn: &mut Connection, post: &Post, kind: &Kind) -> Result<bool> {
         let query = TimelineQuery::parse(&self.query)?;
-        query.matches(conn, self, post, kind)
+        query.matches(conn, self, post, kind).await
     }
 
     fn includes_post(&self, conn: &mut Connection, post: &Post) -> Result<bool> {

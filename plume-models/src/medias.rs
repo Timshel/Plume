@@ -282,7 +282,7 @@ impl Media {
     }
 
     // TODO: merge with save_remote?
-    pub fn from_activity(conn: &mut Connection, image: &Image) -> Result<Media> {
+    pub async fn from_activity(conn: &mut Connection, image: &Image) -> Result<Media> {
         let remote_url = image
             .url()
             .and_then(|url| url.to_as_uri())
@@ -340,8 +340,8 @@ impl Media {
             path.to_str().ok_or(Error::InvalidValue)?.to_string()
         };
 
-        Media::find_by_file_path(conn, &file_path)
-            .and_then(|mut media| {
+        match Media::find_by_file_path(conn, &file_path) {
+            Ok(mut media) => {
                 let mut updated = false;
 
                 let alt_text = image
@@ -375,8 +375,8 @@ impl Media {
                     diesel::update(&media).set(&media).execute(conn)?;
                 }
                 Ok(media)
-            })
-            .or_else(|_| {
+            },
+            Err(_) => {
                 let summary = image.summary().and_then(|summary| summary.to_as_string());
                 let owner_id = User::from_id(
                         conn,
@@ -387,6 +387,7 @@ impl Media {
                         None,
                         CONFIG.proxy(),
                     )
+                    .await
                     .map_err(|(_, e)| e)?
                     .id;
 
@@ -405,7 +406,8 @@ impl Media {
                         owner_id,
                     },
                 )
-            })
+            }
+        }
     }
 
     pub fn get_media_processor<'a>(conn: &'a mut Connection, user: Vec<&User>) -> MediaProcessor<'a> {

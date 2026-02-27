@@ -117,7 +117,7 @@ impl AsObject<User, Announce, &mut Connection> for Post {
     type Error = Error;
     type Output = Reshare;
 
-    fn activity(self, conn: &mut Connection, actor: User, id: &str) -> Result<Reshare> {
+    async fn activity(self, conn: &mut Connection, actor: User, id: &str) -> Result<Reshare> {
         let conn = conn;
         let reshare = Reshare::insert(
             conn,
@@ -129,7 +129,7 @@ impl AsObject<User, Announce, &mut Connection> for Post {
         )?;
         reshare.notify(conn)?;
 
-        Timeline::add_to_all_timelines(conn, &self, Kind::Reshare(&actor))?;
+        Timeline::add_to_all_timelines(conn, &self, &Kind::Reshare(actor)).await?;
         Ok(reshare)
     }
 }
@@ -142,7 +142,7 @@ impl FromId<Connection> for Reshare {
         Reshare::find_by_ap_url(conn, id)
     }
 
-    fn from_activity(conn: &mut Connection, act: Announce) -> Result<Self> {
+    async fn from_activity(conn: &mut Connection, act: Announce) -> Result<Self> {
 
         let new_reshare = NewReshare {
             post_id: Post::from_id(
@@ -154,6 +154,7 @@ impl FromId<Connection> for Reshare {
                 None,
                 CONFIG.proxy(),
             )
+            .await
             .map_err(|(_, e)| e)?
             .id,
             user_id: User::from_id(
@@ -164,7 +165,7 @@ impl FromId<Connection> for Reshare {
                     .as_str(),
                 None,
                 CONFIG.proxy(),
-            )
+            ).await
             .map_err(|(_, e)| e)?
             .id,
             ap_url: act
@@ -187,7 +188,7 @@ impl AsObject<User, Undo, &mut Connection> for Reshare {
     type Error = Error;
     type Output = ();
 
-    fn activity(self, conn: &mut Connection, actor: User, _id: &str) -> Result<()> {
+    async fn activity(self, conn: &mut Connection, actor: User, _id: &str) -> Result<()> {
         if actor.id == self.user_id {
             diesel::delete(&self).execute(conn)?;
 

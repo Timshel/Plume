@@ -315,7 +315,7 @@ impl FromStr for UserActions {
 }
 
 #[post("/admin/users/edit", data = "<form>")]
-pub fn edit_users(
+pub async fn edit_users(
     moderator: Moderator,
     form: Form<MultiAction>,
     mut conn: DbConn,
@@ -364,7 +364,7 @@ pub fn edit_users(
         }
         UserActions::Ban => {
             for u in form.ids.clone() {
-                ban(u, &mut conn, worker)?;
+                ban(u, &mut conn, worker).await?;
             }
         }
     }
@@ -375,9 +375,9 @@ pub fn edit_users(
     ))
 }
 
-fn ban(id: i32, conn: &mut Connection, worker: &ScheduledThreadPool) -> Result<(), ErrorPage> {
+async fn ban(id: i32, conn: &mut Connection, worker: &ScheduledThreadPool) -> Result<(), ErrorPage> {
     let u = User::get(conn, id)?;
-    u.delete(conn)?;
+    u.delete(conn).await?;
     if Instance::get_local()
         .map(|i| u.instance_id == i.id)
         .unwrap_or(false)
@@ -401,21 +401,21 @@ fn ban(id: i32, conn: &mut Connection, worker: &ScheduledThreadPool) -> Result<(
 }
 
 #[post("/inbox", data = "<data>")]
-pub fn shared_inbox(
+pub async fn shared_inbox(
     conn: DbConn,
     data: inbox::SignedJson<serde_json::Value>,
     headers: Headers<'_>,
 ) -> Result<String, status::BadRequest<&'static str>> {
-    inbox::handle_incoming(conn, data, headers)
+    inbox::handle_incoming(conn, data, headers).await
 }
 
 #[get("/remote_interact?<target>")]
-pub fn interact(mut conn: DbConn, user: Option<User>, target: String) -> Option<Redirect> {
-    if User::find_by_fqn(&mut conn, &target).is_ok() {
+pub async fn interact(mut conn: DbConn, user: Option<User>, target: String) -> Option<Redirect> {
+    if User::find_by_fqn(&mut conn, &target).await.is_ok() {
         return Some(Redirect::to(uri!(super::user::details(name = target))));
     }
 
-    if let Ok(post) = Post::from_id(&mut conn, &target, None, CONFIG.proxy()) {
+    if let Ok(post) = Post::from_id(&mut conn, &target, None, CONFIG.proxy()).await {
         return Some(Redirect::to(uri!(
             super::posts::details(blog = post.get_blog(&mut conn).expect("Can't retrieve blog").fqn,
             slug = &post.slug,
@@ -423,7 +423,7 @@ pub fn interact(mut conn: DbConn, user: Option<User>, target: String) -> Option<
         ))));
     }
 
-    if let Ok(comment) = Comment::from_id(&mut conn, &target, None, CONFIG.proxy()) {
+    if let Ok(comment) = Comment::from_id(&mut conn, &target, None, CONFIG.proxy()).await {
         if comment.can_see(&mut conn, user.as_ref()) {
             let post = comment.get_post(&mut conn).expect("Can't retrieve post");
             return Some(Redirect::to(uri!(

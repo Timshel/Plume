@@ -154,7 +154,7 @@ impl AsObject<User, FollowAct, &mut Connection> for User {
     type Error = Error;
     type Output = Follow;
 
-    fn activity(self, conn: &mut Connection, actor: User, id: &str) -> Result<Follow> {
+    async fn activity(self, conn: &mut Connection, actor: User, id: &str) -> Result<Follow> {
         // Mastodon (at least) requires the full Follow object when accepting it,
         // so we rebuilt it here
         let follow = FollowAct::new(actor.ap_url.parse::<IriString>()?, id.parse::<IriString>()?);
@@ -170,7 +170,7 @@ impl FromId<Connection> for Follow {
         Follow::find_by_ap_url(conn, id)
     }
 
-    fn from_activity(conn: &mut Connection, follow: FollowAct) -> Result<Self> {
+    async fn from_activity(conn: &mut Connection, follow: FollowAct) -> Result<Self> {
         let actor = User::from_id(
             conn,
             follow
@@ -181,6 +181,7 @@ impl FromId<Connection> for Follow {
             None,
             CONFIG.proxy(),
         )
+        .await
         .map_err(|(_, e)| e)?;
 
         let target = User::from_id(
@@ -193,6 +194,7 @@ impl FromId<Connection> for Follow {
             None,
             CONFIG.proxy(),
         )
+        .await
         .map_err(|(_, e)| e)?;
         Follow::accept_follow(conn, &actor, &target, follow, actor.id, target.id)
     }
@@ -206,7 +208,7 @@ impl AsObject<User, Undo, &mut Connection> for Follow {
     type Error = Error;
     type Output = ();
 
-    fn activity(self, conn: &mut Connection, actor: User, _id: &str) -> Result<()> {
+    async fn activity(self, conn: &mut Connection, actor: User, _id: &str) -> Result<()> {
         let conn = conn;
         if self.follower_id == actor.id {
             diesel::delete(&self).execute(conn)?;

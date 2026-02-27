@@ -109,16 +109,18 @@ pub fn command() -> Command {
         )
 }
 
-pub fn run(mut args: ArgMatches, conn: &mut Connection) {
-    args.remove_subcommand().map(|(c, a)| {
+pub async fn run(mut args: ArgMatches, conn: &mut Connection) {
+    if let Some((c, a)) = args.remove_subcommand() {
         match c.as_str() {
             "new" => new(a, conn),
             "delete" => delete(a, conn),
-            "add" => add(a, conn),
-            "rm" => rm(a, conn),
+            "add" => add(a, conn).await,
+            "rm" => rm(a, conn).await,
             _ => command().print_help().unwrap(),
         }
-    }).unwrap_or_else(|| println!("Unknown subcommand") )
+    } else {
+      println!("Unknown subcommand");
+    }
 }
 
 fn get_list_identifier(args: &mut ArgMatches) -> (String, Option<String>) {
@@ -177,7 +179,7 @@ fn delete(mut args: ArgMatches, conn: &mut Connection) {
     list.delete(conn).expect("Failed to update list");
 }
 
-fn add(mut args: ArgMatches, conn: &mut Connection) {
+async fn add(mut args: ArgMatches, conn: &mut Connection) {
     let (name, user) = get_list_identifier(&mut args);
     let value = get_value(&mut args);
 
@@ -188,13 +190,13 @@ fn add(mut args: ArgMatches, conn: &mut Connection) {
 
     match list.kind() {
         ListType::Blog => {
-            let blog_id = Blog::find_by_fqn(conn, &value).expect("unknown blog").id;
+            let blog_id = Blog::find_by_fqn(conn, &value).await.expect("unknown blog").id;
             if !list.contains_blog(conn, blog_id).unwrap() {
                 list.add_blogs(conn, &[blog_id]).unwrap();
             }
         }
         ListType::User => {
-            let user_id = User::find_by_fqn(conn, &value).expect("unknown user").id;
+            let user_id = User::find_by_fqn(conn, &value).await.expect("unknown user").id;
             if !list.contains_user(conn, user_id).unwrap() {
                 list.add_users(conn, &[user_id]).unwrap();
             }
@@ -212,7 +214,7 @@ fn add(mut args: ArgMatches, conn: &mut Connection) {
     }
 }
 
-fn rm(mut args: ArgMatches, conn: &mut Connection) {
+async fn rm(mut args: ArgMatches, conn: &mut Connection) {
     let (name, user) = get_list_identifier(&mut args);
     let value = get_value(&mut args);
 
@@ -223,7 +225,7 @@ fn rm(mut args: ArgMatches, conn: &mut Connection) {
 
     match list.kind() {
         ListType::Blog => {
-            let blog_id = Blog::find_by_fqn(conn, &value).expect("unknown blog").id;
+            let blog_id = Blog::find_by_fqn(conn, &value).await.expect("unknown blog").id;
             let mut blogs = list.list_blogs(conn).unwrap();
             if let Some(index) = blogs.iter().position(|b| b.id == blog_id) {
                 blogs.swap_remove(index);
@@ -232,7 +234,7 @@ fn rm(mut args: ArgMatches, conn: &mut Connection) {
             }
         }
         ListType::User => {
-            let user_id = User::find_by_fqn(conn, &value).expect("unknown user").id;
+            let user_id = User::find_by_fqn(conn, &value).await.expect("unknown user").id;
             let mut users = list.list_users(conn).unwrap();
             if let Some(index) = users.iter().position(|u| u.id == user_id) {
                 users.swap_remove(index);

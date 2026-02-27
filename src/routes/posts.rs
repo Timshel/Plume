@@ -34,7 +34,7 @@ use plume_models::{
 };
 
 #[get("/~/<blog>/<slug>?<responding_to>", rank = 4)]
-pub fn details(
+pub async fn details(
     blog: String,
     slug: String,
     responding_to: Option<i32>,
@@ -42,7 +42,7 @@ pub fn details(
     rockets: PlumeRocket,
 ) -> Result<Ructe, ErrorPage> {
     let user = rockets.user.clone();
-    let blog = Blog::find_by_fqn(&mut conn, &blog)?;
+    let blog = Blog::find_by_fqn(&mut conn, &blog).await?;
     let post = Post::find_by_slug(&mut conn, &slug, blog.id)?;
     if !(post.published
         || post
@@ -116,13 +116,13 @@ pub fn details(
 }
 
 #[get("/~/<blog>/<slug>", rank = 3)]
-pub fn activity_details(
+pub async fn activity_details(
     blog: String,
     slug: String,
     _ap: ApRequest,
     mut conn: DbConn,
 ) -> Result<ActivityStream<LicensedArticle>, Option<String>> {
-    let blog = Blog::find_by_fqn(&mut conn, &blog).map_err(|_| None)?;
+    let blog = Blog::find_by_fqn(&mut conn, &blog).await.map_err(|_| None)?;
     let post = Post::find_by_slug(&mut conn, &slug, blog.id).map_err(|_| None)?;
     if post.published {
         Ok(ActivityStream::new(
@@ -146,13 +146,13 @@ pub fn new_auth(blog: String, i18n: I18n) -> Flash<Redirect> {
 }
 
 #[get("/~/<blog>/new", rank = 1)]
-pub fn new(
+pub async fn new(
     blog: String,
     cl: ContentLen,
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> Result<Ructe, ErrorPage> {
-    let b = Blog::find_by_fqn(&mut conn, &blog)?;
+    let b = Blog::find_by_fqn(&mut conn, &blog).await?;
     let user = rockets.user.clone().unwrap();
 
     if !user.is_author_in(&mut conn, &b)? {
@@ -182,7 +182,7 @@ pub fn new(
 }
 
 #[get("/~/<blog>/<slug>/edit")]
-pub fn edit(
+pub async fn edit(
     blog: String,
     slug: String,
     cl: ContentLen,
@@ -190,7 +190,7 @@ pub fn edit(
     rockets: PlumeRocket,
 ) -> Result<Ructe, ErrorPage> {
     let intl = &rockets.intl.catalog;
-    let b = Blog::find_by_fqn(&mut conn, &blog)?;
+    let b = Blog::find_by_fqn(&mut conn, &blog).await?;
     let post = Post::find_by_slug(&mut conn, &slug, b.id)?;
     let user = rockets.user.clone().unwrap();
 
@@ -239,7 +239,7 @@ pub fn edit(
 }
 
 #[post("/~/<blog>/<slug>/edit", data = "<form>")]
-pub fn update(
+pub async fn update(
     blog: String,
     slug: String,
     cl: ContentLen,
@@ -247,7 +247,7 @@ pub fn update(
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> RespondOrRedirect {
-    let b = Blog::find_by_fqn(&mut conn, &blog).expect("post::update: blog error");
+    let b = Blog::find_by_fqn(&mut conn, &blog).await.expect("post::update: blog error");
     let mut post =
         Post::find_by_slug(&mut conn, &slug, b.id).expect("post::update: find by slug error");
     let user = rockets.user.clone().unwrap();
@@ -323,10 +323,12 @@ pub fn update(
             post.cover_id = form.cover;
             post.update(&mut conn).expect("post::update: update error");
 
-            let activity = mentions
-                .into_iter()
-                .filter_map(|m| Mention::build_activity(&mut conn, &m).ok())
-                .collect();
+            let mut activity = vec![];
+            for m in mentions {
+                if let Ok(mention) = Mention::build_activity(&mut conn, &m).await {
+                    activity.push(mention);
+                }
+            }
 
             if post.published {
                 post.update_mentions(&mut conn, activity)
@@ -364,7 +366,7 @@ pub fn update(
                         .worker
                         .execute(move || broadcast(&user, act, dest, CONFIG.proxy().cloned()));
 
-                    Timeline::add_to_all_timelines(&mut conn, &post, Kind::Original).ok();
+                    Timeline::add_to_all_timelines(&mut conn, &post, &Kind::Original).await.ok();
                 } else {
                     let act = post
                         .update_activity(&mut conn)
@@ -428,14 +430,14 @@ pub fn valid_slug(title: &str) -> Result<(), ValidationError> {
 }
 
 #[post("/~/<blog_name>/new", data = "<form>")]
-pub fn create(
+pub async fn create(
     blog_name: String,
     form: Form<NewPostForm>,
     cl: ContentLen,
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> Result<RespondOrRedirect, ErrorPage> {
-    let blog = Blog::find_by_fqn(&mut conn, &blog_name).expect("post::create: blog error");
+    let blog = Blog::find_by_fqn(&mut conn, &blog_name).await.expect("post::create: blog error");
     let slug = Post::slug(&form.title);
     let user = rockets.user.clone().unwrap();
 
@@ -545,7 +547,7 @@ pub fn create(
 
         if post.published {
             for m in mentions {
-                let activity = &Mention::build_activity(&mut conn, &m).expect("post::create: mention build error");
+                let activity = &Mention::build_activity(&mut conn, &m).await.expect("post::create: mention build error");
                 Mention::from_activity(
                     &mut conn,
                     activity,
@@ -563,7 +565,7 @@ pub fn create(
             let worker = &rockets.worker;
             worker.execute(move || broadcast(&user, act, dest, CONFIG.proxy().cloned()));
 
-            Timeline::add_to_all_timelines(&mut conn, &post, Kind::Original)?;
+            Timeline::add_to_all_timelines(&mut conn, &post, &Kind::Original).await?;
         }
 
         Ok(Flash::success(
@@ -594,7 +596,7 @@ pub fn create(
 }
 
 #[post("/~/<blog_name>/<slug>/delete")]
-pub fn delete(
+pub async fn delete(
     blog_name: String,
     slug: String,
     mut conn: DbConn,
@@ -602,7 +604,7 @@ pub fn delete(
     intl: I18n,
 ) -> Result<Flash<Redirect>, ErrorPage> {
     let user = rockets.user.clone().unwrap();
-    let post = Blog::find_by_fqn(&mut conn, &blog_name)
+    let post = Blog::find_by_fqn(&mut conn, &blog_name).await
         .and_then(|blog| Post::find_by_slug(&mut conn, &slug, blog.id));
 
     if let Ok(post) = post {
@@ -626,7 +628,7 @@ pub fn delete(
         inbox(
             &mut conn,
             serde_json::to_value(&delete_activity).map_err(Error::from)?,
-        )?;
+        ).await?;
 
         let user_c = user.clone();
         rockets
@@ -651,13 +653,13 @@ pub fn delete(
 }
 
 #[get("/~/<blog_name>/<slug>/remote_interact")]
-pub fn remote_interact(
+pub async fn remote_interact(
     mut conn: DbConn,
     rockets: PlumeRocket,
     blog_name: String,
     slug: String,
 ) -> Result<Ructe, ErrorPage> {
-    let target = Blog::find_by_fqn(&mut conn, &blog_name)
+    let target = Blog::find_by_fqn(&mut conn, &blog_name).await
         .and_then(|blog| Post::find_by_slug(&mut conn, &slug, blog.id))?;
     let pc = PostCard::from(&mut conn, target, &rockets.user);
 
@@ -672,17 +674,17 @@ pub fn remote_interact(
 }
 
 #[post("/~/<blog_name>/<slug>/remote_interact", data = "<remote>")]
-pub fn remote_interact_post(
+pub async fn remote_interact_post(
     mut conn: DbConn,
     rockets: PlumeRocket,
     blog_name: String,
     slug: String,
     remote: Form<RemoteForm>,
 ) -> Result<RespondOrRedirect, ErrorPage> {
-    let target = Blog::find_by_fqn(&mut conn, &blog_name)
+    let target = Blog::find_by_fqn(&mut conn, &blog_name).await
         .and_then(|blog| Post::find_by_slug(&mut conn, &slug, blog.id))?;
 
-    if let Some(uri) = User::fetch_remote_interact_uri(&remote.remote)
+    if let Some(uri) = User::fetch_remote_interact_uri(&remote.remote).await
         .ok()
         .map(|uri| {
             let encoded = rocket::http::RawStr::new(&target.ap_url).percent_encode().to_string();

@@ -102,7 +102,7 @@ pub fn list(
 }
 
 #[post("/posts", data = "<payload>")]
-pub fn create(
+pub async fn create(
     auth: Authorization<Write, Post>,
     payload: Json<NewPostData>,
     mut conn: DbConn,
@@ -195,7 +195,7 @@ pub fn create(
 
     if post.published {
         for m in mentions.into_iter() {
-            let activity = &Mention::build_activity(&mut conn, &m)?;
+            let activity = &Mention::build_activity(&mut conn, &m).await?;
             Mention::from_activity(
                 &mut conn,
                 activity,
@@ -210,7 +210,7 @@ pub fn create(
         worker.execute(move || broadcast(&author, act, dest, CONFIG.proxy().cloned()));
     }
 
-    Timeline::add_to_all_timelines(&mut conn, &post, Kind::Original)?;
+    Timeline::add_to_all_timelines(&mut conn, &post, &Kind::Original).await?;
 
     Ok(Json(PostData {
         authors: post

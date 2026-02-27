@@ -111,7 +111,7 @@ impl Comment {
                 .unwrap_or(false)
     }
 
-    pub fn to_activity(&self, conn: &mut Connection) -> Result<Note> {
+    pub async fn to_activity(&self, conn: &mut Connection) -> Result<Note> {
         let author = User::get(conn, self.author_id)?;
         let (html, mentions, _hashtags) = utils::md_to_html(
             self.content.get().as_ref(),
@@ -142,18 +142,21 @@ impl Comment {
         );
         note.set_attributed_to(author.into_id().parse::<IriString>()?);
         note.set_many_tos(to);
-        note.set_many_tags(mentions.into_iter().filter_map(|m| {
-            Mention::build_activity(conn, &m)
-                .map(|mention| mention.into_any_base().expect("Can convert"))
-                .ok()
-        }));
+
+        let mut tags = vec![];
+        for m in mentions {
+            if let Ok(mention) = Mention::build_activity(conn, &m).await {
+                tags.push(mention.into_any_base().expect("Can convert"));
+            }
+        }
+        note.set_many_tags(tags);
         Ok(note)
     }
 
-    pub fn create_activity(&self, conn: &mut Connection) -> Result<Create> {
+    pub async fn create_activity(&self, conn: &mut Connection) -> Result<Create> {
         let author = User::get(conn, self.author_id)?;
 
-        let note = self.to_activity(conn)?;
+        let note = self.to_activity(conn).await?;
         let note_clone = note.clone();
 
         let mut act = Create::new(
@@ -226,7 +229,7 @@ impl FromId<Connection> for Comment {
         Self::find_by_ap_url(conn, id)
     }
 
-    fn from_activity(conn: &mut Connection, note: Note) -> Result<Self> {
+    async fn from_activity(conn: &mut Connection, note: Note) -> Result<Self> {
         let comm = {
             let previous_url = note
                 .in_reply_to()
@@ -268,7 +271,7 @@ impl FromId<Connection> for Comment {
                     .ok_or(Error::MissingApProperty)?,
                 None,
                 CONFIG.proxy(),
-            ).map_err(|(_, e)| e)?.id;
+            ).await.map_err(|(_, e)| e)?.id;
 
             let comm = Comment::insert(
                 conn,
@@ -327,20 +330,14 @@ impl FromId<Connection> for Comment {
             receivers_id(note.bto());
             receivers_id(note.bcc());
 
-            let receivers_ap_url = receiver_ids
-                .into_iter()
-                .flat_map(|v| {
-                    if let Ok(user) = User::from_id(conn, v.as_ref(), None, CONFIG.proxy()) {
-                        vec![user]
-                    } else {
-                        vec![] // TODO try to fetch collection
+            let mut receivers_ap_url = HashSet::new(); //remove duplicates (prevent db error)
+            for r_id in receiver_ids {
+                if let Ok(user) = User::from_id(conn, &r_id, None, CONFIG.proxy()).await {
+                    if user.get_instance(conn).map(|i| i.local).unwrap_or(false) {
+                        receivers_ap_url.insert(user);
                     }
-                })
-                .collect::<HashSet<User>>() //remove duplicates (prevent db error)
-                .into_iter()
-                .filter(|u| u.get_instance(conn).map(|i| i.local).unwrap_or(false))
-                .collect::<Vec<User>>();
-
+                }
+            };
 
             for user in &receivers_ap_url {
                 CommentSeers::insert(
@@ -366,7 +363,7 @@ impl AsObject<User, Create, &mut Connection> for Comment {
     type Error = Error;
     type Output = Self;
 
-    fn activity(self, _conn: &mut Connection, _actor: User, _id: &str) -> Result<Self> {
+    async fn activity(self, _conn: &mut Connection, _actor: User, _id: &str) -> Result<Self> {
         // The actual creation takes place in the FromId impl
         Ok(self)
     }
@@ -376,7 +373,7 @@ impl AsObject<User, Delete, &mut Connection> for Comment {
     type Error = Error;
     type Output = ();
 
-    fn activity(self, conn: &mut Connection, actor: User, _id: &str) -> Result<()> {
+    async fn activity(self, conn: &mut Connection, actor: User, _id: &str) -> Result<()> {
         if self.author_id != actor.id {
             return Err(Error::Unauthorized);
         }

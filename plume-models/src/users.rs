@@ -146,7 +146,7 @@ impl User {
     }
 
 
-    pub fn delete(&self, conn: &mut Connection) -> Result<()> {
+    pub async fn delete(&self, conn: &mut Connection) -> Result<()> {
         use crate::schema::post_authors;
 
         for blog in Blog::find_for_author(conn, self)? {
@@ -189,7 +189,7 @@ impl User {
             crate::inbox::inbox(
                 conn,
                 serde_json::to_value(&delete_activity).map_err(Error::from)?,
-            )?;
+            ).await?;
         }
 
         diesel::delete(self)
@@ -219,7 +219,7 @@ impl User {
             .map_err(Error::from)
     }
 
-    pub fn find_by_fqn(conn: &mut Connection, fqn: &str) -> Result<User> {
+    pub async fn find_by_fqn(conn: &mut Connection, fqn: &str) -> Result<User> {
         let from_db = users::table
             .filter(users::fqn.eq(fqn))
             .first(conn)
@@ -227,7 +227,7 @@ impl User {
         if let Some(from_db) = from_db {
             Ok(from_db)
         } else {
-            User::fetch_from_webfinger(conn, fqn)
+            User::fetch_from_webfinger(conn, fqn).await
         }
     }
 
@@ -268,8 +268,8 @@ impl User {
         .map_err(Error::from)
     }
 
-    fn fetch_from_webfinger(conn: &mut Connection, acct: &str) -> Result<User> {
-        let link = resolve(acct.to_owned(), true)?
+    async fn fetch_from_webfinger(conn: &mut Connection, acct: &str) -> Result<User> {
+        let link = resolve(acct.to_owned(), true).await?
             .links
             .into_iter()
             .find(|l| l.mime_type == Some(String::from("application/activity+json")))
@@ -279,12 +279,12 @@ impl User {
             link.href.as_ref().ok_or(Error::Webfinger)?,
             None,
             CONFIG.proxy(),
-        )
+        ).await
         .map_err(|(_, e)| e)
     }
 
-    pub fn fetch_remote_interact_uri(acct: &str) -> Result<String> {
-        resolve(acct.to_owned(), true)?
+    pub async fn fetch_remote_interact_uri(acct: &str) -> Result<String> {
+        resolve(acct.to_owned(), true).await?
             .links
             .into_iter()
             .find(|l| l.rel == "http://ostatus.org/schema/1.0/subscribe")
@@ -299,8 +299,11 @@ impl User {
         Ok(json)
     }
 
-    pub fn fetch_from_url(conn: &mut DbConn, url: &str) -> Result<User> {
-        User::fetch(url).and_then(|json| User::from_activity(conn, json))
+    pub async fn fetch_from_url(conn: &mut DbConn, url: &str) -> Result<User> {
+        match User::fetch(url) {
+            Ok(json) => User::from_activity(conn, json).await,
+            Err(err) => Err(err),
+        }
     }
 
     pub fn refetch(&self, conn: &mut Connection) -> Result<()> {
@@ -980,7 +983,7 @@ impl FromId<Connection> for User {
         Self::find_by_ap_url(conn, id)
     }
 
-    fn from_activity(conn: &mut Connection, acct: CustomPerson) -> Result<Self> {
+    async fn from_activity(conn: &mut Connection, acct: CustomPerson) -> Result<Self> {
         let actor = acct.ap_actor_ref();
         let username = actor
             .preferred_username()
@@ -1101,9 +1104,9 @@ impl AsObject<User, Delete, &mut Connection> for User {
     type Error = Error;
     type Output = ();
 
-    fn activity(self, conn: &mut Connection, actor: User, _id: &str) -> Result<()> {
+    async fn activity(self, conn: &mut Connection, actor: User, _id: &str) -> Result<()> {
         if self.id == actor.id {
-            self.delete(conn).map(|_| ())
+            self.delete(conn).await.map(|_| ())
         } else {
             Err(Error::Unauthorized)
         }

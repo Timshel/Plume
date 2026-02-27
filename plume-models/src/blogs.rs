@@ -153,7 +153,7 @@ impl Blog {
             .map_err(Error::from)
     }
 
-    pub fn find_by_fqn(conn: &mut Connection, fqn: &str) -> Result<Blog> {
+    pub async fn find_by_fqn(conn: &mut Connection, fqn: &str) -> Result<Blog> {
         let from_db = blogs::table
             .filter(blogs::fqn.eq(fqn))
             .first(conn)
@@ -161,25 +161,30 @@ impl Blog {
         if let Some(from_db) = from_db {
             Ok(from_db)
         } else {
-            Blog::fetch_from_webfinger(conn, fqn)
+            Blog::fetch_from_webfinger(conn, fqn).await
         }
     }
 
-    fn fetch_from_webfinger(conn: &mut Connection, acct: &str) -> Result<Blog> {
-        resolve_with_prefix(Prefix::Group, acct.to_owned(), true)?
+    async fn fetch_from_webfinger(conn: &mut Connection, acct: &str) -> Result<Blog> {
+        let rwp = resolve_with_prefix(Prefix::Group, acct.to_owned(), true).await?
             .links
             .into_iter()
             .find(|l| l.mime_type == Some(String::from("application/activity+json")))
-            .ok_or(Error::Webfinger)
-            .and_then(|l| {
+            .ok_or(Error::Webfinger);
+
+        match rwp {
+            Ok(l) => {
                 Blog::from_id(
                     conn,
                     &l.href.ok_or(Error::MissingApProperty)?,
                     None,
                     CONFIG.proxy(),
                 )
+                .await
                 .map_err(|(_, e)| e)
-            })
+            },
+            Err(err) => Err(err),
+        }
     }
 
     pub fn to_activity(&self, conn: &mut Connection) -> Result<CustomGroup> {
@@ -391,7 +396,7 @@ impl FromId<Connection> for Blog {
         Self::find_by_ap_url(conn, id)
     }
 
-    fn from_activity(conn: &mut Connection, acct: CustomGroup) -> Result<Self> {
+    async fn from_activity(conn: &mut Connection, acct: CustomGroup) -> Result<Self> {
         let (name, outbox_url, inbox_url) = {
             let actor = acct.ap_actor_ref();
             let name = actor
@@ -431,40 +436,42 @@ impl FromId<Connection> for Blog {
                 .unwrap_or_default(),
         );
 
-        let icon_id = object
-            .icon()
-            .and_then(|icons| {
-                icons.iter().next().and_then(|icon| {
-                    let icon = icon.to_owned().extend::<Image, ImageType>().ok()??;
-                    let owner = icon.attributed_to()?.to_as_uri()?;
-                    let user = &User::from_id(conn, &owner, None, CONFIG.proxy()).ok()?;
-                    Media::save_remote(
-                        conn,
-                        icon.url()?.to_as_uri()?,
-                        user,
-                    )
-                    .ok()
-                })
-            })
-            .map(|m| m.id);
+        let icon_id = match object.icon()
+                .and_then(|icons| icons.iter().next())
+                .and_then(|icon|  icon.to_owned().extend::<Image, ImageType>().ok().flatten() )
+                .and_then(|icon|  {
+                    let i = icon.url().and_then(|b| b.to_as_uri());
+                    let o = icon.attributed_to().and_then(|b| b.to_as_uri());
+                    i.zip(o)
+                }){
+            Some((icon, owner)) => {
+                User::from_id(conn, &owner, None, CONFIG.proxy())
+                    .await.ok()
+                    .and_then(|user| {
+                        Media::save_remote(conn, icon, &user).ok().map(|m| m.id)
+                    })
+            },
+            None => None,
+        };
         new_blog.icon_id = icon_id;
 
-        let banner_id = object
-            .image()
-            .and_then(|banners| {
-                banners.iter().next().and_then(|banner| {
-                    let banner = banner.to_owned().extend::<Image, ImageType>().ok()??;
-                    let owner = banner.attributed_to()?.to_as_uri()?;
-                    let user = &User::from_id(conn, &owner, None, CONFIG.proxy()).ok()?;
-                    Media::save_remote(
-                        conn,
-                        banner.url()?.to_as_uri()?,
-                        user,
-                    )
-                    .ok()
-                })
-            })
-            .map(|m| m.id);
+        let banner_id = match object.image()
+                .and_then(|banners| banners.iter().next())
+                .and_then(|banner|  banner.to_owned().extend::<Image, ImageType>().ok().flatten() )
+                .and_then(|banner|  {
+                    let b = banner.url().and_then(|b| b.to_as_uri());
+                    let o = banner.attributed_to().and_then(|b| b.to_as_uri());
+                    b.zip(o)
+                }){
+            Some((banner, owner)) => {
+                User::from_id(conn, &owner, None, CONFIG.proxy())
+                    .await.ok()
+                    .and_then(|user| {
+                        Media::save_remote(conn, banner, &user).ok().map(|m| m.id)
+                    })
+            },
+            None => None,
+        };
         new_blog.banner_id = banner_id;
 
         new_blog.summary = acct.ext_two.source.content;

@@ -624,41 +624,27 @@ impl FromId<Connection> for Post {
         Self::find_by_ap_url(conn, id)
     }
 
-    fn from_activity(conn: &mut Connection, article: LicensedArticle) -> Result<Self> {
+    async fn from_activity(conn: &mut Connection, article: LicensedArticle) -> Result<Self> {
         let license = article.ext_one.license.unwrap_or_default();
         let article = article.inner;
 
-        let (blog, authors) = article
-            .ap_object_ref()
-            .attributed_to()
-            .ok_or(Error::MissingApProperty)?
-            .iter()
-            .fold((None, vec![]), |(blog, mut authors), link| {
-                if let Some(url) = link.id() {
-                    match User::from_id(conn, url.as_str(), None, CONFIG.proxy()) {
-                        Ok(u) => {
-                            authors.push(u);
-                            (blog, authors)
-                        }
-                        Err(_) => (
-                            blog.or_else(|| {
-                                Blog::from_id(conn, url.as_str(), None, CONFIG.proxy()).ok()
-                            }),
-                            authors,
-                        ),
-                    }
-                } else {
-                    // logically, url possible to be an object without id proprty like {"type":"Person", "name":"Sally"} but we ignore the case
-                    (blog, authors)
-                }
-            });
+        let mut authors: Vec<User> = vec![];
+        let mut blog: Option<Blog> = None;
+        for link in article.ap_object_ref().attributed_to().ok_or(Error::MissingApProperty)? {
+            if let Some(url) = link.id() {
+                match User::from_id(conn, url.as_str(), None, CONFIG.proxy()).await {
+                    Ok(u) => authors.push(u),
+                    Err(_) => blog = Blog::from_id(conn, url.as_str(), None, CONFIG.proxy()).await.ok(),
+                };
+            }
+        }
 
-        let cover = article.icon().and_then(|icon| {
-            icon.iter().next().and_then(|img| {
-                let image = img.to_owned().extend::<Image, ImageType>().ok()??;
-                Media::from_activity(conn, &image).ok().map(|m| m.id)
-            })
-        });
+        let cover = match article.icon()
+                .and_then(|icon| icon.iter().next() )
+                .and_then(|icon| icon.to_owned().extend::<Image, ImageType>().ok().flatten() ) {
+            Some(image) => Media::from_activity(conn, &image).await.ok().map(|m| m.id),
+            None => None,
+        };
 
         let title = article
             .name()
@@ -813,7 +799,7 @@ impl FromId<Connection> for Post {
             }
         }
 
-        Timeline::add_to_all_timelines(conn, &post, Kind::Original)?;
+        Timeline::add_to_all_timelines(conn, &post, &Kind::Original).await?;
 
         Ok(post)
     }
@@ -827,7 +813,7 @@ impl AsObject<User, Create, &mut Connection> for Post {
     type Error = Error;
     type Output = Self;
 
-    fn activity(self, _conn: &mut Connection, _actor: User, _id: &str) -> Result<Self::Output> {
+    async fn activity(self, _conn: &mut Connection, _actor: User, _id: &str) -> Result<Self::Output> {
         // TODO: check that _actor is actually one of the author?
         Ok(self)
     }
@@ -837,7 +823,7 @@ impl AsObject<User, Delete, &mut Connection> for Post {
     type Error = Error;
     type Output = ();
 
-    fn activity(self, conn: &mut Connection, actor: User, _id: &str) -> Result<Self::Output> {
+    async fn activity(self, conn: &mut Connection, actor: User, _id: &str) -> Result<Self::Output> {
         let can_delete = self
             .get_authors(conn)?
             .into_iter()
@@ -870,7 +856,7 @@ impl FromId<Connection> for PostUpdate {
         Err(Error::NotFound)
     }
 
-    fn from_activity(conn: &mut Connection, updated: Self::Object) -> Result<Self> {
+    async fn from_activity(conn: &mut Connection, updated: Self::Object) -> Result<Self> {
         let mut post_update = PostUpdate {
             ap_url: updated
                 .ap_object_ref()
@@ -904,17 +890,13 @@ impl FromId<Connection> for PostUpdate {
                 .tag()
                 .and_then(|tags| serde_json::to_value(tags).ok()),
         };
-        post_update.cover = updated.ap_object_ref().icon().and_then(|img| {
-            img.iter()
-                .next()
-                .and_then(|img| {
-                    img.clone()
-                        .extend::<Image, ImageType>()
-                        .map(|img| img.and_then(|img| Media::from_activity(conn, &img).ok()))
-                        .ok()
-                })
-                .and_then(|m| m.map(|m| m.id))
-        });
+        let cover = match updated.ap_object_ref().icon()
+                .and_then(|img| img.iter().next())
+                .and_then(|img| img.clone().extend::<Image, ImageType>().ok().flatten() ) {
+            Some(img) => Media::from_activity(conn, &img).await.ok().map(|m| m.id),
+            None => None,
+        };
+        post_update.cover = cover;
         post_update.license = updated.ext_one.license;
 
         Ok(post_update)
@@ -929,9 +911,9 @@ impl AsObject<User, Update, &mut Connection> for PostUpdate {
     type Error = Error;
     type Output = ();
 
-    fn activity(self, conn: &mut Connection, actor: User, _id: &str) -> Result<()> {
+    async fn activity(self, conn: &mut Connection, actor: User, _id: &str) -> Result<()> {
         let mut post =
-            Post::from_id(conn, &self.ap_url, None, CONFIG.proxy()).map_err(|(_, e)| e)?;
+            Post::from_id(conn, &self.ap_url, None, CONFIG.proxy()).await.map_err(|(_, e)| e)?;
 
         if !post.is_author(conn, actor.id)? {
             // TODO: maybe the author was added in the meantime

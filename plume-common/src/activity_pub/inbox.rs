@@ -197,7 +197,7 @@ where
     }
 
     /// Registers an handler on this Inbox.
-    pub fn with<A, V, M>(self, proxy: Option<&reqwest::Proxy>) -> Self
+    pub async fn with<A, V, M>(self, proxy: Option<&reqwest::Proxy>) -> Self
     where
         A: AsActor<&'a mut C> + FromId<C, Error = E>,
         V: activitystreams::markers::Activity + serde::de::DeserializeOwned,
@@ -228,7 +228,7 @@ where
                     &actor_id,
                     serde_json::from_value(act["actor"].clone()).ok(),
                     proxy,
-                ) {
+                ).await {
                     Ok(a) => a,
                     // If the actor was not found, go to the next handler
                     Err((json, e)) => {
@@ -249,7 +249,7 @@ where
                     &obj_id,
                     serde_json::from_value(act["object"].clone()).ok(),
                     proxy,
-                ) {
+                ).await {
                     Ok(o) => o,
                     Err((json, e)) => {
                         if let Some(json) = json {
@@ -260,7 +260,7 @@ where
                 };
 
                 // Handle the activity
-                match obj.activity(ctx, actor, act_id) {
+                match obj.activity(ctx, actor, act_id).await {
                     Ok(res) => Self::Handled(res.into()),
                     Err(e) => Self::Failed(e),
                 }
@@ -328,6 +328,7 @@ fn get_id(json: serde_json::Value) -> Option<String> {
 /// a full object, and if so, save it with `from_activity`. If it is only an ID, it will try to find
 /// it in the database with `from_db`, and otherwise dereference (fetch) the full object and parse it
 /// with `from_activity`.
+#[allow(async_fn_in_trait)]
 pub trait FromId<C>: Sized {
     /// The type representing a failure
     type Error: From<InboxError<Self::Error>> + Debug;
@@ -343,7 +344,7 @@ pub trait FromId<C>: Sized {
     /// - `id`: the ActivityPub ID of the object to find
     /// - `object`: optional object that will be used if the object was not found in the database
     ///   If absent, the ID will be dereferenced.
-    fn from_id(
+    async fn from_id(
         ctx: &mut C,
         id: &str,
         object: Option<Self::Object>,
@@ -352,8 +353,8 @@ pub trait FromId<C>: Sized {
         match Self::from_db(ctx, id) {
             Ok(x) => Ok(x),
             _ => match object {
-                Some(o) => Self::from_activity(ctx, o).map_err(|e| (None, e)),
-                None => Self::from_activity(ctx, Self::deref(id, proxy.cloned())?)
+                Some(o) => Self::from_activity(ctx, o).await.map_err(|e| (None, e)),
+                None => Self::from_activity(ctx, Self::deref(id, proxy.cloned())?).await
                     .map_err(|e| (None, e)),
             },
         }
@@ -377,7 +378,7 @@ pub trait FromId<C>: Sized {
     }
 
     /// Builds a `Self` from its ActivityPub representation
-    fn from_activity(ctx: &mut C, activity: Self::Object) -> Result<Self, Self::Error>;
+    async fn from_activity(ctx: &mut C, activity: Self::Object) -> Result<Self, Self::Error>;
 
     /// Tries to find a `Self` with a given ID (`id`), using `ctx` (a database)
     fn from_db(ctx: &mut C, id: &str) -> Result<Self, Self::Error>;
@@ -521,6 +522,7 @@ pub trait AsActor<C> {
 ///     }
 /// }
 /// ```
+#[allow(async_fn_in_trait)]
 pub trait AsObject<A, V, C>
 where
     V: activitystreams::markers::Activity,
@@ -542,7 +544,7 @@ where
     /// - `ctx`: the context passed to `Inbox::handle`
     /// - `actor`: the actor who did this activity
     /// - `id`: the ID of this activity
-    fn activity(self, ctx: C, actor: A, id: &str) -> Result<Self::Output, Self::Error>;
+    async fn activity(self, ctx: C, actor: A, id: &str) -> Result<Self::Output, Self::Error>;
 }
 
 #[cfg(test)]

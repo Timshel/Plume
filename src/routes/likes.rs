@@ -10,21 +10,21 @@ use plume_models::{
 };
 
 #[post("/~/<blog>/<slug>/like")]
-pub fn create(
+pub async fn create(
     blog: String,
     slug: String,
     user: User,
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> Result<Redirect, ErrorPage> {
-    let b = Blog::find_by_fqn(&mut conn, &blog)?;
+    let b = Blog::find_by_fqn(&mut conn, &blog).await?;
     let post = Post::find_by_slug(&mut conn, &slug, b.id)?;
 
     if !user.has_liked(&mut conn, &post)? {
         let like = likes::Like::insert(&mut conn, likes::NewLike::new(&post, &user))?;
         like.notify(&mut conn)?;
 
-        Timeline::add_to_all_timelines(&mut conn, &post, Kind::Like(&user))?;
+        Timeline::add_to_all_timelines(&mut conn, &post, &Kind::Like(user.clone())).await?;
 
         let dest = User::one_by_instance(&mut conn)?;
         let act = like.to_activity(&mut conn)?;
@@ -37,7 +37,7 @@ pub fn create(
         inbox(
             &mut conn,
             serde_json::to_value(&delete_act).map_err(Error::from)?,
-        )?;
+        ).await?;
 
         let dest = User::one_by_instance(&mut conn)?;
         rockets

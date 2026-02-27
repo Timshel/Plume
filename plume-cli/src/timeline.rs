@@ -119,16 +119,18 @@ pub fn command() -> Command {
         )
 }
 
-pub fn run<'a>(mut args: ArgMatches, conn: &mut Connection) {
-    args.remove_subcommand().map(|(c, a)| {
+pub async fn run<'a>(mut args: ArgMatches, conn: &mut Connection) {
+    if let Some((c, a)) = args.remove_subcommand() {
         match c.as_str() {
-            "new" => new(a, conn),
+            "new" => new(a, conn).await,
             "edit" => edit(a, conn),
             "delete" => delete(a, conn),
-            "repopulate" => repopulate(a, conn),
+            "repopulate" => repopulate(a, conn).await,
             _ => command().print_help().unwrap(),
         }
-    }).unwrap_or_else(|| println!("Unknown subcommand") )
+    } else {
+        println!("Unknown subcommand");
+    }
 }
 
 fn get_timeline_identifier(args: &mut ArgMatches) -> (String, Option<String>) {
@@ -170,7 +172,7 @@ fn resolve_user(username: &str, conn: &mut Connection) -> User {
     User::find_by_name(conn, username, instance.id).expect("User not found")
 }
 
-fn preload(timeline: Timeline, count: usize, conn: &mut Connection) {
+async fn preload(timeline: Timeline, count: usize, conn: &mut Connection) {
     timeline.remove_all_posts(conn).unwrap();
 
     if count == 0 {
@@ -183,7 +185,7 @@ fn preload(timeline: Timeline, count: usize, conn: &mut Connection) {
         .into_iter()
         .rev()
     {
-        if timeline.matches(conn, &post, Kind::Original).unwrap() {
+        if timeline.matches(conn, &post, &Kind::Original).await.unwrap() {
             posts.push(post);
             if posts.len() >= count {
                 break;
@@ -196,7 +198,7 @@ fn preload(timeline: Timeline, count: usize, conn: &mut Connection) {
     }
 }
 
-fn new(mut args: ArgMatches, conn: &mut Connection) {
+async fn new(mut args: ArgMatches, conn: &mut Connection) {
     let (name, user) = get_timeline_identifier(&mut args);
     let query = get_query(&mut args);
     let preload_count = get_preload_count(&mut args);
@@ -210,7 +212,7 @@ fn new(mut args: ArgMatches, conn: &mut Connection) {
     }
     .expect("Failed to create new timeline");
 
-    preload(timeline, preload_count, conn);
+    preload(timeline, preload_count, conn).await;
 }
 
 fn edit(mut args: ArgMatches, conn: &mut Connection) {
@@ -242,7 +244,7 @@ fn delete(mut args: ArgMatches, conn: &mut Connection) {
     timeline.delete(conn).expect("Failed to update timeline");
 }
 
-fn repopulate(mut args: ArgMatches, conn: &mut Connection) {
+async fn repopulate(mut args: ArgMatches, conn: &mut Connection) {
     let (name, user) = get_timeline_identifier(&mut args);
     let preload_count = get_preload_count(&mut args);
 
@@ -250,5 +252,5 @@ fn repopulate(mut args: ArgMatches, conn: &mut Connection) {
 
     let timeline = Timeline::find_for_user_by_name(conn, user.map(|u| u.id), &name)
         .expect("timeline not found");
-    preload(timeline, preload_count, conn);
+    preload(timeline, preload_count, conn).await;
 }

@@ -10,7 +10,8 @@ mod search;
 mod timeline;
 mod users;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let mut app = Command::new("Plume CLI")
         .bin_name("plm")
         .version(env!("CARGO_PKG_VERSION"))
@@ -32,17 +33,19 @@ fn main() {
     let _ = Instance::cache_local(&mut conn);
 
 
-    matches.remove_subcommand().map(|(c, args)| {
+    if let Some((c, args)) = matches.remove_subcommand() {
         match c.as_str() {
             "instance" => instance::run(args, &mut conn),
             "migration" => migration::run(args, &mut conn),
             "search" => search::run(args, &mut conn),
-            "timeline" => timeline::run(args, &mut conn),
-            "lists" => list::run(args, &mut conn),
+            "timeline" => timeline::run(args, &mut conn).await,
+            "lists" => list::run(args, &mut conn).await,
             "users" => users::run(args, &mut conn),
             _ => app.print_help().expect("Couldn't print help"),
         }
-    }).unwrap_or_else(|| app.print_help().expect("Couldn't print help") );
+    } else {
+        app.print_help().expect("Couldn't print help");
+    }
 }
 
 pub fn ask_for(something: &str) -> String {

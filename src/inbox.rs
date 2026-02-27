@@ -11,7 +11,7 @@ use rocket::serde::json::{Error as JsonError};
 use serde::Deserialize;
 use tracing::warn;
 
-pub fn handle_incoming(
+pub async fn handle_incoming(
     mut conn: DbConn,
     data: SignedJson<serde_json::Value>,
     headers: Headers<'_>,
@@ -25,7 +25,7 @@ pub fn handle_incoming(
         .or_else(|| activity["actor"]["id"].as_str())
         .ok_or(status::BadRequest("Missing actor id for activity"))?;
 
-    let actor = User::from_id(&mut conn, actor_id, None, CONFIG.proxy())
+    let actor = User::from_id(&mut conn, actor_id, None, CONFIG.proxy()).await
         .expect("instance::shared_inbox: user error");
     if !verify_http_headers(&actor, &headers.0, &sig).is_secure() && !act.clone().verify(&actor) {
         // maybe we just know an old key?
@@ -54,7 +54,7 @@ pub fn handle_incoming(
         return Ok(String::new());
     }
 
-    Ok(match inbox(&mut conn, act) {
+    Ok(match inbox(&mut conn, act).await {
         Ok(_) => String::new(),
         Err(e) => {
             warn!("Shared inbox error: {:?}", e);

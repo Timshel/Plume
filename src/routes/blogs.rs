@@ -19,14 +19,14 @@ use plume_models::{
 };
 
 #[get("/~/<name>?<page>", rank = 2)]
-pub fn details(
+pub async fn details(
     name: String,
     page: Option<crate::routes::Page>,
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> Result<Ructe, ErrorPage> {
     let page = page.unwrap_or_default();
-    let blog = Blog::find_by_fqn(&mut conn, &name)?;
+    let blog = Blog::find_by_fqn(&mut conn, &name).await?;
     let blog_icon_url = blog.icon_url(&mut conn);
     let blog_banner_url = blog.banner_url(&mut conn);
     let articles_count = Post::count_for_blog(&mut conn, &blog)?;
@@ -50,12 +50,12 @@ pub fn details(
 }
 
 #[get("/~/<name>", rank = 1)]
-pub fn activity_details(
+pub async fn activity_details(
     name: String,
     mut conn: DbConn,
     _ap: ApRequest,
 ) -> Option<ActivityStream<CustomGroup>> {
-    let blog = Blog::find_by_fqn(&mut conn, &name).ok()?;
+    let blog = Blog::find_by_fqn(&mut conn, &name).await.ok()?;
     Some(ActivityStream::new(blog.to_activity(&mut conn).ok()?))
 }
 
@@ -95,7 +95,7 @@ fn valid_slug(title: &str) -> Result<(), ValidationError> {
 }
 
 #[post("/blogs/new", data = "<form>")]
-pub fn create(
+pub async fn create(
     form: Form<NewBlogForm>,
     mut conn: DbConn,
     rockets: PlumeRocket,
@@ -108,7 +108,7 @@ pub fn create(
         Ok(_) => ValidationErrors::new(),
         Err(e) => e,
     };
-    if Blog::find_by_fqn(&mut conn, slug).is_ok() {
+    if Blog::find_by_fqn(&mut conn, slug).await.is_ok() {
         errors.add(
             "title",
             ValidationError {
@@ -158,8 +158,8 @@ pub fn create(
 }
 
 #[post("/~/<name>/delete")]
-pub fn delete(name: String, mut conn: DbConn, rockets: PlumeRocket) -> RespondOrRedirect {
-    let blog = Blog::find_by_fqn(&mut conn, &name).expect("blog::delete: blog not found");
+pub async fn delete(name: String, mut conn: DbConn, rockets: PlumeRocket) -> RespondOrRedirect {
+    let blog = Blog::find_by_fqn(&mut conn, &name).await.expect("blog::delete: blog not found");
 
     if rockets
         .user
@@ -197,8 +197,8 @@ pub struct EditForm {
 }
 
 #[get("/~/<name>/edit")]
-pub fn edit(name: String, mut conn: DbConn, rockets: PlumeRocket) -> Result<Ructe, ErrorPage> {
-    let blog = Blog::find_by_fqn(&mut conn, &name)?;
+pub async fn edit(name: String, mut conn: DbConn, rockets: PlumeRocket) -> Result<Ructe, ErrorPage> {
+    let blog = Blog::find_by_fqn(&mut conn, &name).await?;
     if rockets
         .user
         .clone()
@@ -245,14 +245,14 @@ fn check_media(conn: &mut Connection, id: i32, user: &User) -> bool {
 }
 
 #[put("/~/<name>/edit", data = "<form>")]
-pub fn update(
+pub async fn update(
     name: String,
     form: Form<EditForm>,
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> RespondOrRedirect {
     let intl = &rockets.intl.catalog;
-    let mut blog = Blog::find_by_fqn(&mut conn, &name).expect("blog::update: blog not found");
+    let mut blog = Blog::find_by_fqn(&mut conn, &name).await.expect("blog::update: blog not found");
     if !rockets
         .user
         .clone()
@@ -350,23 +350,23 @@ pub fn update(
 }
 
 #[get("/~/<name>/outbox")]
-pub fn outbox(name: String, mut conn: DbConn) -> Option<ActivityStream<OrderedCollection>> {
-    let blog = Blog::find_by_fqn(&mut conn, &name).ok()?;
+pub async fn outbox(name: String, mut conn: DbConn) -> Option<ActivityStream<OrderedCollection>> {
+    let blog = Blog::find_by_fqn(&mut conn, &name).await.ok()?;
     blog.outbox(&mut conn).ok()
 }
 #[allow(unused_variables)]
 #[get("/~/<name>/outbox?<page>")]
-pub fn outbox_page(
+pub async fn outbox_page(
     name: String,
     page: Page,
     mut conn: DbConn,
 ) -> Option<ActivityStream<OrderedCollectionPage>> {
-    let blog = Blog::find_by_fqn(&mut conn, &name).ok()?;
+    let blog = Blog::find_by_fqn(&mut conn, &name).await.ok()?;
     blog.outbox_page(&mut conn, page.limits()).ok()
 }
 #[get("/~/<name>/atom.xml")]
-pub fn atom_feed(name: String, mut conn: DbConn) -> Option<(ContentType, String)> {
-    let blog = Blog::find_by_fqn(&mut conn, &name).ok()?;
+pub async fn atom_feed(name: String, mut conn: DbConn) -> Option<(ContentType, String)> {
+    let blog = Blog::find_by_fqn(&mut conn, &name).await.ok()?;
     let entries = Post::get_recents_for_blog(&mut conn, &blog, 15).ok()?;
     let uri = Instance::get_local()
         .ok()?

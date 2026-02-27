@@ -60,8 +60,8 @@ impl Mention {
         }
     }
 
-    pub fn build_activity(conn: &mut Connection, ment: &str) -> Result<link::Mention> {
-        let user = User::find_by_fqn(conn, ment)?;
+    pub async fn build_activity(conn: &mut Connection, ment: &str) -> Result<link::Mention> {
+        let user = User::find_by_fqn(conn, ment).await?;
         let mut mention = link::Mention::new();
         mention.set_href(user.ap_url.parse::<IriString>()?);
         mention.set_name(format!("@{}", ment));
