@@ -398,13 +398,16 @@ mod tests {
         Connection as Conn, CONFIG,
     };
     use rocket::{
-        http::{Cookie, Cookies, SameSite},
-        local::{Client, LocalRequest},
+        http::{Cookie, SameSite},
+        local::blocking::Client,
     };
 
     #[test]
     fn edit_link_within_post_card() {
-        let conn = Conn::establish(CONFIG.database_url.as_str()).unwrap();
+        let mut conn = Conn::establish(CONFIG.database_url.as_str()).unwrap();
+
+        plume_models::migrations::run_pending_migrations(&mut conn).expect("Couldn't run migrations");
+
         Instance::insert(
             &mut conn,
             NewInstance {
@@ -420,33 +423,37 @@ mod tests {
             },
         )
         .unwrap();
+
         let rocket = init_rocket();
-        let client = Client::new(rocket).expect("valid rocket instance");
+        let client = Client::tracked(rocket).expect("valid rocket instance");
         let dbpool = client.rocket().state::<DbPool>().unwrap();
-        let conn = &DbConn(dbpool.get().unwrap());
+        let mut conn = DbConn(dbpool.get().unwrap());
 
-        let (_instance, user, blog, post) = create_models(conn);
+        let (_instance, user, blog, post) = create_models(&mut conn);
 
-        let blog_path = uri!(super::activity_details: name = &blog.fqn).to_string();
+        let blog_path = uri!(super::activity_details(name = &blog.fqn)).to_string();
         let edit_link = uri!(
-            super::super::posts::edit: blog = &blog.fqn,
-            slug = &post.slug
+            super::super::posts::edit(blog = &blog.fqn, slug = &post.slug)
         )
         .to_string();
 
-        let mut response = client.get(&blog_path).dispatch();
-        let body = response.body_string().unwrap();
+        let response = client.get(&blog_path).dispatch();
+        let body = response.into_string().unwrap();
         assert!(!body.contains(&edit_link));
 
-        let request = client.get(&blog_path);
-        login(&request, &user);
-        let mut response = request.dispatch();
-        let body = response.body_string().unwrap();
+        let request = client.get(&blog_path)
+            .private_cookie(
+                Cookie::build((AUTH_COOKIE, user.id.to_string()))
+                    .same_site(SameSite::Lax)
+                    .build()
+            );
+        let response = request.dispatch();
+        let body = response.into_string().unwrap();
         assert!(body.contains(&edit_link));
     }
 
-    fn create_models(conn: &DbConn) -> (Instance, User, Blog, Post) {
-        conn.transaction::<(Instance, User, Blog, Post), diesel::result::Error, _>(|| {
+    fn create_models(conn: &mut DbConn) -> (Instance, User, Blog, Post) {
+        conn.transaction::<(Instance, User, Blog, Post), diesel::result::Error, _>(|conn| {
             let instance = Instance::get_local().unwrap_or_else(|_| {
                 let instance = Instance::insert(
                     conn,
@@ -523,14 +530,6 @@ mod tests {
             Ok((instance, user, blog, post))
         })
         .unwrap()
-    }
-
-    fn login(request: &LocalRequest, user: &User) {
-        request.inner().guard::<Cookies>().unwrap().add_private(
-            Cookie::build(AUTH_COOKIE, user.id.to_string())
-                .same_site(SameSite::Lax)
-                .finish(),
-        );
     }
 
     #[test]
