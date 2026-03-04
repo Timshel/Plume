@@ -3,7 +3,7 @@ use crate::{
     Result, CONFIG,
 };
 use activitystreams::{
-    activity::{Accept, ActorAndObjectRef, Follow as FollowAct, Undo},
+    activity::{Accept, Follow as FollowAct, Undo},
     base::AnyBase,
     iri_string::types::IriString,
     prelude::*,
@@ -98,7 +98,7 @@ impl Follow {
                 follower_id: from_id,
                 following_id: target_id,
                 ap_url: follow
-                    .object_field_ref()
+                    .object_unchecked()
                     .as_single_id()
                     .ok_or(Error::MissingApProperty)?
                     .to_string(),
@@ -174,7 +174,7 @@ impl FromId<Connection> for Follow {
         let actor = User::from_id(
             conn,
             follow
-                .actor_field_ref()
+                .actor_unchecked()
                 .as_single_id()
                 .ok_or(Error::MissingApProperty)?
                 .as_str(),
@@ -187,7 +187,7 @@ impl FromId<Connection> for Follow {
         let target = User::from_id(
             conn,
             follow
-                .object_field_ref()
+                .object_unchecked()
                 .as_single_id()
                 .ok_or(Error::MissingApProperty)?
                 .as_str(),

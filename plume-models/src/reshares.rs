@@ -3,7 +3,7 @@ use crate::{
     Connection, Error, Result, CONFIG,
 };
 use activitystreams::{
-    activity::{ActorAndObjectRef, Announce, Undo},
+    activity::{Announce, Undo},
     base::AnyBase,
     iri_string::types::IriString,
     prelude::*,
@@ -147,7 +147,7 @@ impl FromId<Connection> for Reshare {
         let new_reshare = NewReshare {
             post_id: Post::from_id(
                 conn,
-                act.object_field_ref()
+                act.object_unchecked()
                     .as_single_id()
                     .ok_or(Error::MissingApProperty)?
                     .as_str(),
@@ -159,7 +159,7 @@ impl FromId<Connection> for Reshare {
             .id,
             user_id: User::from_id(
                 conn,
-                act.actor_field_ref()
+                act.actor_unchecked()
                     .as_single_id()
                     .ok_or(Error::MissingApProperty)?
                     .as_str(),

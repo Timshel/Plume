@@ -3,7 +3,7 @@ use crate::{
     Connection, Error, Result, CONFIG,
 };
 use activitystreams::{
-    activity::{ActorAndObjectRef, Like as LikeAct, Undo},
+    activity::{Like as LikeAct, Undo},
     base::AnyBase,
     iri_string::types::IriString,
     prelude::*,
@@ -117,7 +117,7 @@ impl FromId<Connection> for Like {
         let like = NewLike {
             post_id: Post::from_id(
                 conn,
-                act.object_field_ref()
+                act.object_unchecked()
                     .as_single_id()
                     .ok_or(Error::MissingApProperty)?
                     .as_str(),
@@ -129,7 +129,7 @@ impl FromId<Connection> for Like {
             .id,
             user_id: User::from_id(
                 conn,
-                act.actor_field_ref()
+                act.actor_unchecked()
                     .as_single_id()
                     .ok_or(Error::MissingApProperty)?
                     .as_str(),

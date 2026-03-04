@@ -1018,7 +1018,7 @@ impl FromId<Connection> for User {
             public_key: acct.ext_one.public_key.public_key_pem.to_string(),
             shared_inbox_url: actor
                 .endpoints()?
-                .and_then(|e| e.shared_inbox.map(|inbox| inbox.to_string())),
+                .and_then(|e| e.shared_inbox.as_ref().map(|inbox| inbox.to_string())),
             followers_endpoint: actor
                 .followers()?
                 .ok_or(Error::MissingApProperty)?

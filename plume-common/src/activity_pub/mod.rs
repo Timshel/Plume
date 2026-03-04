@@ -417,7 +417,8 @@ impl AsHashtag for Hashtag {
     }
 }
 
-impl Extends<HashtagType> for Hashtag {
+impl Extends for Hashtag {
+    type Kind = HashtagType;
     type Error = serde_json::Error;
 
     fn extends(base: Base<HashtagType>) -> Result<Self, Self::Error> {

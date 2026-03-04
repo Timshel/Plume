@@ -6,7 +6,7 @@ use crate::{
     ACTOR_SYS, CONFIG, USER_CHAN,
 };
 use activitystreams::{
-    activity::{ActorAndObjectRef, Create},
+    activity::{AsActivityObjectExt, Create},
     base::AnyBase,
     object::kind::ArticleType,
 };
@@ -94,7 +94,7 @@ async fn fetch_and_cache_articles(user: Arc<User>, mut conn: DbConn) {
     match create_acts {
         Ok(create_acts) => {
             for create_act in create_acts {
-                match create_act.object_field_ref().as_single_base().map(|base| {
+                match create_act.object_unchecked().as_single_base().map(|base| {
                     let any_base = AnyBase::from_base(base.clone()); // FIXME: Don't clone()
                     any_base.extend::<LicensedArticle, ArticleType>()
                 }) {
