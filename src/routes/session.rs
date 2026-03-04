@@ -1,5 +1,5 @@
 use crate::routes::RespondOrRedirect;
-use plume_models::lettre::Transport;
+use lettre::Transport;
 use rocket::{
     http::{Cookie, CookieJar, SameSite},
     form::Form,
@@ -152,7 +152,7 @@ pub fn password_reset_request(
             i18n!(rockets.intl.catalog, "Here is the link to reset your password: {0}"; url),
         ) {
             if let Some(ref mut mail) = *mail.lock().unwrap() {
-                mail.send(message.into())
+                mail.send(&message)
                     .map_err(|_| warn!("Couldn't send password reset email"))
                     .ok();
             }

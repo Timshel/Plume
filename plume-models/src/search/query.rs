@@ -190,9 +190,12 @@ impl PlumeQuery {
             let before = self
                 .before
                 .unwrap_or_else(|| i64::from(Utc::now().date_naive().num_days_from_ce()));
+
             let field = Searcher::schema().get_field("creation_date").unwrap();
-            let range =
-                RangeQuery::new_i64_bounds(field, Bound::Included(after), Bound::Included(before));
+            let range = RangeQuery::new(
+                Bound::Included(Term::from_field_i64(field, after)),
+                Bound::Excluded(Term::from_field_i64(field, before)),
+            );
             result.push((Occur::Must, Box::new(range)));
         }
 

@@ -10,7 +10,7 @@ use std::{cmp, fs::create_dir_all, io, path::Path, sync::Mutex};
 use std::collections::HashMap;
 use tantivy::{
     collector::TopDocs, directory::MmapDirectory, schema::*, Index, IndexReader, IndexWriter,
-    ReloadPolicy, TantivyError, Term,
+    ReloadPolicy, error::TantivyError, Term,
 };
 use tracing::warn;
 use whatlang::{detect as detect_lang, Lang};
@@ -22,6 +22,7 @@ pub enum SearcherError {
     IndexOpeningError,
     IndexEditionError,
     InvalidIndexDataError,
+    DocumentError,
 }
 
 pub struct Searcher {
@@ -129,6 +130,7 @@ Then try to restart Plume
         let index = Index::create(
             MmapDirectory::open(path).map_err(|_| SearcherError::IndexCreationError)?,
             schema,
+            tantivy::index::IndexSettings::default(),
         )
         .map_err(|_| SearcherError::IndexCreationError)?;
 
@@ -154,7 +156,7 @@ Then try to restart Plume
     }
 
     pub fn open(path: &dyn AsRef<Path>, tokenizers: &SearchTokenizerConfig) -> Result<Self> {
-        let mut index =
+        let index =
             Index::open(MmapDirectory::open(path).map_err(|_| SearcherError::IndexOpeningError)?)
                 .map_err(|_| SearcherError::IndexOpeningError)?;
 
@@ -168,22 +170,8 @@ Then try to restart Plume
             .writer(50_000_000)
             .map_err(|_| SearcherError::WriteLockAcquisitionError)?;
 
-        // Since Tantivy v0.12.0, IndexWriter::garbage_collect_files() returns Future.
-        // To avoid conflict with Plume async project, we don't introduce async now.
-        // After async is introduced to Plume, we can use garbage_collect_files() again.
-        // Algorithm stolen from Tantivy's SegmentUpdater::list_files()
-        use std::collections::HashSet;
-        use std::path::PathBuf;
-        let mut files: HashSet<PathBuf> = index
-            .list_all_segment_metas()
-            .into_iter()
-            .flat_map(|segment_meta| segment_meta.list_files())
-            .collect();
-        files.insert(Path::new("meta.json").to_path_buf());
-        index
-            .directory_mut()
-            .garbage_collect(|| files)
-            .map_err(|_| SearcherError::IndexEditionError)?;
+
+        writer.garbage_collect_files();
 
         Ok(Self {
             writer: Mutex::new(Some(writer)),
@@ -192,8 +180,7 @@ Then try to restart Plume
                 .reload_policy(ReloadPolicy::Manual)
                 .try_into()
                 .map_err(|e| {
-                    if let TantivyError::IOError(err) = e {
-                        let err: io::Error = err.into();
+                    if let TantivyError::IoError(err) = e {
                         if err.kind() == io::ErrorKind::InvalidData {
                             // Search index was created in older Tantivy format.
                             SearcherError::InvalidIndexDataError
@@ -232,6 +219,7 @@ Then try to restart Plume
 
         let mut writer = self.writer.lock().unwrap();
         let writer = writer.as_mut().unwrap();
+
         writer.add_document(doc!(
             post_id => i64::from(post.id),
             author => post.get_authors(conn)?.into_iter().map(|u| u.fqn).join(" "),
@@ -247,7 +235,8 @@ Then try to restart Plume
             title => post.title.clone(),
             lang => detect_lang(post.content.get()).and_then(|i| if i.is_reliable() { Some(i.lang()) } else {None} ).unwrap_or(Lang::Eng).name(),
             license => post.license.clone(),
-        ));
+        )).map_err(|_| SearcherError::DocumentError)?;
+
         Ok(())
     }
 
@@ -284,10 +273,8 @@ Then try to restart Plume
             .unwrap_or(&[])
             .iter()
             .filter_map(|(_, doc_add)| {
-                let doc = searcher.doc(*doc_add).ok()?;
-                let id = doc.get_first(post_id)?;
-                Post::get(conn, id.i64_value() as i32).ok()
-                //borrow checker don't want me to use filter_map or and_then here
+                let doc = searcher.doc::<TantivyDocument>(*doc_add).ok()?;
+                doc.get_first(post_id)?.as_i64().and_then(|id| Post::get(conn,id as i32).ok())
             })
             .collect()
     }
@@ -339,7 +326,7 @@ Then try to restart Plume
                     title => post.title.clone(),
                     lang => detect_lang(post.content.get()).and_then(|i| if i.is_reliable() { Some(i.lang()) } else {None} ).unwrap_or(Lang::Eng).name(),
                     license => post.license.clone(),
-                ));
+                )).map_err(|_| SearcherError::DocumentError)?;
                 cursor = post.id;
             }
             if posts.len() < PAGE_SIZE as usize {

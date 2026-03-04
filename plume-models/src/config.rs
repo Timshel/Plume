@@ -1,6 +1,6 @@
 use crate::search::TokenizerKind as SearchTokenizer;
 use crate::signups::Strategy as SignupStrategy;
-use crate::smtp::{SMTP_PORT, SUBMISSIONS_PORT, SUBMISSION_PORT};
+use lettre::transport::smtp::{SMTP_PORT, SUBMISSIONS_PORT, SUBMISSION_PORT};
 use rocket::data::Limits;
 use rocket::Config as RocketConfig;
 use std::collections::HashSet;

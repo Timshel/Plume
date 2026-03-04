@@ -5,9 +5,10 @@ use crate::{
 };
 
 use plume_models::{
-    db_conn::DbConn, email_signups::EmailSignup, instance::Instance, lettre::Transport, signups,
+    db_conn::DbConn, email_signups::EmailSignup, instance::Instance, signups,
     Error, PlumeRocket, CONFIG,
 };
+use lettre::Transport;
 use rocket::{
     http::Status,
     form::Form,
@@ -147,7 +148,7 @@ pub fn create(
     .expect("Mail configuration has already been done at ignition process");
     // TODO: Render error page
     if let Some(ref mut mailer) = *mail.lock().unwrap() {
-        mailer.send(message.into()).ok(); // TODO: Render error page
+        mailer.send(&message).ok(); // TODO: Render error page
     }
 
     Ok(render!(email_signups::create_html(&(&mut conn, &rockets).to_context())).into())
