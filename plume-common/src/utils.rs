@@ -125,7 +125,7 @@ fn highlight_code<'a>(
                     ClassStyle::Spaced,
                 );
                 for line in ctx.content {
-                    html.parse_html_for_line_which_includes_newline(&line);
+                    let _ = html.parse_html_for_line_which_includes_newline(&line);
                 }
                 let q = html.finalize();
                 result.push(Event::Html(q.into()));
