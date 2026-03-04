@@ -11,8 +11,6 @@ atom_syndication = "0.12.7"
 clap = "4.5.60"
 dotenv = "0.15.0"
 gettext = "0.4.0"
-gettext-macros = "0.6.1"
-gettext-utils = "0.1.0"
 guid-create = "0.5.2"
 lettre = "0.11.19"
 num_cpus = "1.17"
@@ -62,6 +60,12 @@ path = "rocket_csrf"
 
 [dependencies.rocket_i18n]
 path = "rocket_i18n"
+
+[dependencies.gettext-macros]
+path = "gettext-macros"
+
+[dependencies.gettext-utils]
+path = "gettext-utils"
 
 [build-dependencies]
 ructe = "0.18.2"

@@ -5,7 +5,7 @@ authors = ["Plume contributors"]
 edition = "2018"
 
 [dependencies]
-ammonia = "3.3.1"
+ammonia = "4.1.2"
 async-recursion = "1.1.1"
 bcrypt = "0.19.0"
 guid-create = "0.5.2"
