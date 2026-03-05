@@ -158,8 +158,8 @@ pub async fn create(
 }
 
 #[post("/~/<name>/delete")]
-pub async fn delete(name: String, mut conn: DbConn, rockets: PlumeRocket) -> RespondOrRedirect {
-    let blog = Blog::find_by_fqn(&mut conn, &name).await.expect("blog::delete: blog not found");
+pub async fn delete(name: &str, mut conn: DbConn, rockets: PlumeRocket) -> RespondOrRedirect {
+    let blog = Blog::find_by_fqn(&mut conn, name).await.expect("blog::delete: blog not found");
 
     if rockets
         .user
@@ -197,8 +197,8 @@ pub struct EditForm {
 }
 
 #[get("/~/<name>/edit")]
-pub async fn edit(name: String, mut conn: DbConn, rockets: PlumeRocket) -> Result<Ructe, ErrorPage> {
-    let blog = Blog::find_by_fqn(&mut conn, &name).await?;
+pub async fn edit(name: &str, mut conn: DbConn, rockets: PlumeRocket) -> Result<Ructe, ErrorPage> {
+    let blog = Blog::find_by_fqn(&mut conn, name).await?;
     if rockets
         .user
         .clone()
@@ -246,13 +246,13 @@ fn check_media(conn: &mut Connection, id: i32, user: &User) -> bool {
 
 #[put("/~/<name>/edit", data = "<form>")]
 pub async fn update(
-    name: String,
+    name: &str,
     form: Form<EditForm>,
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> RespondOrRedirect {
     let intl = &rockets.intl.catalog;
-    let mut blog = Blog::find_by_fqn(&mut conn, &name).await.expect("blog::update: blog not found");
+    let mut blog = Blog::find_by_fqn(&mut conn, name).await.expect("blog::update: blog not found");
     if !rockets
         .user
         .clone()
@@ -350,23 +350,23 @@ pub async fn update(
 }
 
 #[get("/~/<name>/outbox")]
-pub async fn outbox(name: String, mut conn: DbConn) -> Option<ActivityStream<OrderedCollection>> {
-    let blog = Blog::find_by_fqn(&mut conn, &name).await.ok()?;
+pub async fn outbox(name: &str, mut conn: DbConn) -> Option<ActivityStream<OrderedCollection>> {
+    let blog = Blog::find_by_fqn(&mut conn, name).await.ok()?;
     blog.outbox(&mut conn).ok()
 }
 #[allow(unused_variables)]
 #[get("/~/<name>/outbox?<page>")]
 pub async fn outbox_page(
-    name: String,
+    name: &str,
     page: Page,
     mut conn: DbConn,
 ) -> Option<ActivityStream<OrderedCollectionPage>> {
-    let blog = Blog::find_by_fqn(&mut conn, &name).await.ok()?;
+    let blog = Blog::find_by_fqn(&mut conn, name).await.ok()?;
     blog.outbox_page(&mut conn, page.limits()).ok()
 }
 #[get("/~/<name>/atom.xml")]
-pub async fn atom_feed(name: String, mut conn: DbConn) -> Option<(ContentType, String)> {
-    let blog = Blog::find_by_fqn(&mut conn, &name).await.ok()?;
+pub async fn atom_feed(name: &str, mut conn: DbConn) -> Option<(ContentType, String)> {
+    let blog = Blog::find_by_fqn(&mut conn, name).await.ok()?;
     let entries = Post::get_recents_for_blog(&mut conn, &blog, 15).ok()?;
     let uri = Instance::get_local()
         .ok()?

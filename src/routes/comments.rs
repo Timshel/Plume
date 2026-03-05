@@ -30,15 +30,15 @@ pub struct NewCommentForm {
 
 #[post("/~/<blog_name>/<slug>/comment", data = "<form>")]
 pub async fn create(
-    blog_name: String,
-    slug: String,
+    blog_name: &str,
+    slug: &str,
     form: Form<NewCommentForm>,
     user: User,
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> Result<Flash<Redirect>, Ructe> {
-    let blog = Blog::find_by_fqn(&mut conn, &blog_name).await.expect("comments::create: blog error");
-    let post = Post::find_by_slug(&mut conn, &slug, blog.id).expect("comments::create: post error");
+    let blog = Blog::find_by_fqn(&mut conn, blog_name).await.expect("comments::create: blog error");
+    let post = Post::find_by_slug(&mut conn, slug, blog.id).expect("comments::create: post error");
     match form.validate() {
         Ok(_) => {
             let (html, mentions, _hashtags) = utils::md_to_html(
@@ -144,8 +144,8 @@ pub async fn create(
 
 #[post("/~/<blog>/<slug>/comment/<id>/delete")]
 pub async fn delete(
-    blog: String,
-    slug: String,
+    blog: &str,
+    slug: &str,
     id: i32,
     user: User,
     mut conn: DbConn,
@@ -184,8 +184,8 @@ pub async fn delete(
 
 #[get("/~/<_blog>/<_slug>/comment/<id>")]
 pub async fn activity_pub(
-    _blog: String,
-    _slug: String,
+    _blog: &str,
+    _slug: &str,
     id: i32,
     _ap: ApRequest,
     mut conn: DbConn,

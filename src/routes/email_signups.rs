@@ -161,12 +161,12 @@ pub fn created(mut conn: DbConn, rockets: PlumeRocket, _enabled: signups::Email)
 
 #[get("/email_signups/<token>")]
 pub fn show(
-    token: String,
+    token: &str,
     mut conn: DbConn,
     rockets: PlumeRocket,
     _enabled: signups::Email,
 ) -> Result<Ructe, ErrorPage> {
-    let signup = EmailSignup::find_by_token(&mut conn, token.into())?;
+    let signup = EmailSignup::find_by_token(&mut conn, token.to_string().into())?;
     let confirmation = signup.confirm(&mut conn);
     if let Some(err) = confirmation.err() {
         match err {

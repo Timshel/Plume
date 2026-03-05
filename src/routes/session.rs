@@ -165,11 +165,11 @@ pub fn password_reset_request(
 
 #[get("/password-reset/<token>")]
 pub fn password_reset_form(
-    token: String,
+    token: &str,
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> Result<Ructe, Ructe> {
-    PasswordResetRequest::find_by_token(&mut conn, &token)
+    PasswordResetRequest::find_by_token(&mut conn, token)
         .map_err(|err| password_reset_error_response(err, &mut conn, &rockets))?;
 
     Ok(render!(session::password_reset_html(
@@ -200,7 +200,7 @@ fn passwords_match(form: &NewPasswordForm) -> Result<(), ValidationError> {
 
 #[post("/password-reset/<token>", data = "<form>")]
 pub fn password_reset(
-    token: String,
+    token: &str,
     form: Form<NewPasswordForm>,
     mut conn: DbConn,
     rockets: PlumeRocket,
@@ -213,7 +213,7 @@ pub fn password_reset(
         ))
     })?;
 
-    PasswordResetRequest::find_and_delete_by_token(&mut conn, &token)
+    PasswordResetRequest::find_and_delete_by_token(&mut conn, token)
         .and_then(|request| User::find_by_email(&mut conn, &request.email))
         .and_then(|user| user.reset_password(&mut conn, &form.password))
         .map_err(|err| password_reset_error_response(err, &mut conn, &rockets))?;

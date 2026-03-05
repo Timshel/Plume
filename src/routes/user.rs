@@ -45,8 +45,8 @@ pub fn me(user: Option<User>) -> RespondOrRedirect {
 }
 
 #[get("/@/<name>", rank = 2)]
-pub async fn details(name: String, rockets: PlumeRocket, mut conn: DbConn) -> Result<Ructe, ErrorPage> {
-    let user = User::find_by_fqn(&mut conn, &name).await?;
+pub async fn details(name: &str, rockets: PlumeRocket, mut conn: DbConn) -> Result<Ructe, ErrorPage> {
+    let user = User::find_by_fqn(&mut conn, name).await?;
     let avatar_url = default_avatar(&user.avatar_url(&mut conn)).to_string();
     let recents = Post::get_recents_for_author(&mut conn, &user, 6)?;
     let pc_recents = PostCard::from_posts(&mut conn, recents, &rockets.user);
@@ -110,12 +110,12 @@ pub fn dashboard_auth(i18n: I18n) -> Flash<Redirect> {
 
 #[post("/@/<name>/follow")]
 pub async fn follow(
-    name: String,
+    name: &str,
     user: User,
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> Result<Flash<Redirect>, ErrorPage> {
-    let target = User::find_by_fqn(&mut conn, &name).await?;
+    let target = User::find_by_fqn(&mut conn, name).await?;
     let message = if let Ok(follow) = follows::Follow::find(&mut conn, user.id, target.id) {
         let delete_act = follow.build_undo(&mut conn)?;
         local_inbox(
@@ -156,11 +156,11 @@ pub async fn follow(
 pub async fn follow_not_connected(
     mut conn: DbConn,
     rockets: PlumeRocket,
-    name: String,
+    name: &str,
     remote_form: Option<Form<RemoteForm>>,
     i18n: I18n,
 ) -> Result<RespondOrRedirect, ErrorPage> {
-    let target = User::find_by_fqn(&mut conn, &name).await?;
+    let target = User::find_by_fqn(&mut conn, name).await?;
     let avatar_url = target.avatar_url(&mut conn);
     if let Some(remote_form) = remote_form {
         if let Some(uri) = User::fetch_remote_interact_uri(&remote_form).await
@@ -227,13 +227,13 @@ pub fn follow_auth(name: String, i18n: I18n) -> Flash<Redirect> {
 
 #[get("/@/<name>/followers?<page>", rank = 2)]
 pub async fn followers(
-    name: String,
+    name: &str,
     page: Option<Page>,
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> Result<Ructe, ErrorPage> {
     let page = page.unwrap_or_default();
-    let user = User::find_by_fqn(&mut conn, &name).await?;
+    let user = User::find_by_fqn(&mut conn, name).await?;
     let avatar_url = user.avatar_url(&mut conn);
     let followers_count = user.count_followers(&mut conn)?;
     let is_following = rockets.user
@@ -260,13 +260,13 @@ pub async fn followers(
 
 #[get("/@/<name>/followed?<page>", rank = 2)]
 pub async fn followed(
-    name: String,
+    name: &str,
     page: Option<Page>,
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> Result<Ructe, ErrorPage> {
     let page = page.unwrap_or_default();
-    let user = User::find_by_fqn(&mut conn, &name).await?;
+    let user = User::find_by_fqn(&mut conn, name).await?;
     let avatar_url = user.avatar_url(&mut conn);
     let followed_count = user.count_followed(&mut conn)?;
 
@@ -326,7 +326,7 @@ pub fn new(mut conn: DbConn, rockets: PlumeRocket) -> Result<Ructe, ErrorPage> {
 
 #[get("/@/<name>/edit")]
 pub fn edit(
-    name: String,
+    name: &str,
     user: User,
     mut conn: DbConn,
     rockets: PlumeRocket,
@@ -349,7 +349,7 @@ pub fn edit(
 }
 
 #[get("/@/<name>/edit", rank = 2)]
-pub fn edit_auth(name: String, i18n: I18n) -> Flash<Redirect> {
+pub fn edit_auth(name: &str, i18n: I18n) -> Flash<Redirect> {
     requires_login(
         &i18n!(
             i18n.catalog,
@@ -371,7 +371,7 @@ pub struct UpdateUserForm {
 #[allow(unused_variables)]
 #[put("/@/<name>/edit", data = "<form>")]
 pub fn update(
-    name: String,
+    name: &str,
     mut conn: DbConn,
     mut user: User,
     form: Form<UpdateUserForm>,
@@ -404,13 +404,13 @@ pub fn update(
 
 #[post("/@/<name>/delete")]
 pub async fn delete(
-    name: String,
+    name: &str,
     user: User,
     cookies: &CookieJar<'_>,
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> Result<Flash<Redirect>, ErrorPage> {
-    let account = User::find_by_fqn(&mut conn, &name).await?;
+    let account = User::find_by_fqn(&mut conn, name).await?;
     if user.id == account.id {
         account.delete(&mut conn).await?;
 
@@ -558,37 +558,37 @@ pub fn create(
 }
 
 #[get("/@/<name>/outbox")]
-pub async fn outbox(name: String, mut conn: DbConn) -> Option<ActivityStream<OrderedCollection>> {
-    let user = User::find_by_fqn(&mut conn, &name).await.ok()?;
+pub async fn outbox(name: &str, mut conn: DbConn) -> Option<ActivityStream<OrderedCollection>> {
+    let user = User::find_by_fqn(&mut conn, name).await.ok()?;
     user.outbox(&mut conn).ok()
 }
 #[get("/@/<name>/outbox?<page>")]
 pub async fn outbox_page(
-    name: String,
+    name: &str,
     page: Page,
     mut conn: DbConn,
 ) -> Option<ActivityStream<OrderedCollectionPage>> {
-    let user = User::find_by_fqn(&mut conn, &name).await.ok()?;
+    let user = User::find_by_fqn(&mut conn, name).await.ok()?;
     user.outbox_page(&mut conn, page.limits()).ok()
 }
 #[post("/@/<name>/inbox", data = "<data>")]
 pub async fn inbox(
-    name: String,
+    name: &str,
     data: crate::inbox::SignedJson<serde_json::Value>,
     headers: Headers<'_>,
     mut conn: DbConn,
 ) -> Result<String, status::BadRequest<&'static str>> {
-    User::find_by_fqn(&mut conn, &name).await.map_err(|_| status::BadRequest("User not found"))?;
+    User::find_by_fqn(&mut conn, name).await.map_err(|_| status::BadRequest("User not found"))?;
     crate_inbox::handle_incoming(conn, data, headers).await
 }
 
 #[get("/@/<name>/followers", rank = 1)]
 pub async fn ap_followers(
-    name: String,
+    name: &str,
     mut conn: DbConn,
     _ap: ApRequest,
 ) -> Option<ActivityStream<OrderedCollection>> {
-    let user = User::find_by_fqn(&mut conn, &name).await.ok()?;
+    let user = User::find_by_fqn(&mut conn, name).await.ok()?;
     let followers = user
         .get_followers(&mut conn)
         .ok()?
@@ -604,13 +604,13 @@ pub async fn ap_followers(
 }
 
 #[get("/@/<name>/atom.xml")]
-pub async fn atom_feed(name: String, mut conn: DbConn) -> Option<(ContentType, String)> {
+pub async fn atom_feed(name: &str, mut conn: DbConn) -> Option<(ContentType, String)> {
     let conn = &mut conn;
-    let author = User::find_by_fqn(conn, &name).await.ok()?;
+    let author = User::find_by_fqn(conn, name).await.ok()?;
     let entries = Post::get_recents_for_author(conn, &author, 15).ok()?;
     let uri = Instance::get_local()
         .ok()?
-        .compute_box("@", &name, "atom.xml");
+        .compute_box("@", name, "atom.xml");
     let title = &author.display_name;
     let default_updated = &author.creation_date;
     let feed = super::build_atom_feed(entries, &uri, title, default_updated, conn);

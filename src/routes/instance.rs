@@ -196,7 +196,7 @@ pub fn admin_users(
 #[get("/admin/users?<user>&<page>", rank = 1)]
 pub fn admin_search_users(
     _mod: Moderator,
-    user: String,
+    user: &str,
     page: Option<Page>,
     mut conn: DbConn,
     rockets: PlumeRocket,
@@ -207,7 +207,7 @@ pub fn admin_search_users(
     let users = (if user.is_empty() {
         User::get_local_page(&mut conn, page.limits())?
     } else {
-        User::search_local_by_name(&mut conn, &user, page.limits())?
+        User::search_local_by_name(&mut conn, user, page.limits())?
     }).into_iter()
         .map(|u| {
             let avatar_url = u.avatar_url(&mut conn);
@@ -218,7 +218,7 @@ pub fn admin_search_users(
     Ok(render!(instance::users_html(
         &(&mut conn, &rockets).to_context(),
         users,
-        Some(user.as_str()),
+        Some(user),
         page.0,
         page_total
     )))

@@ -11,14 +11,14 @@ use plume_models::{
 
 #[post("/~/<blog>/<slug>/reshare")]
 pub async fn create(
-    blog: String,
-    slug: String,
+    blog: &str,
+    slug: &str,
     user: User,
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> Result<Redirect, ErrorPage> {
-    let b = Blog::find_by_fqn(&mut conn, &blog).await?;
-    let post = Post::find_by_slug(&mut conn, &slug, b.id)?;
+    let b = Blog::find_by_fqn(&mut conn, blog).await?;
+    let post = Post::find_by_slug(&mut conn, slug, b.id)?;
 
     if !user.has_reshared(&mut conn, &post)? {
         let reshare = Reshare::insert(&mut conn, NewReshare::new(&post, &user))?;
@@ -53,7 +53,7 @@ pub async fn create(
 }
 
 #[post("/~/<blog>/<slug>/reshare", rank = 1)]
-pub fn create_auth(blog: String, slug: String, i18n: I18n) -> Flash<Redirect> {
+pub fn create_auth(blog: String, slug: &str, i18n: I18n) -> Flash<Redirect> {
     requires_login(
         &i18n!(i18n.catalog, "To reshare a post, you need to be logged in"),
         uri!(create(blog = blog, slug = slug)),

@@ -249,7 +249,7 @@ impl<'r> Responder<'r, 'r> for ThemeFile {
 }
 
 #[get("/static/cached/<_build_id>/css/<file..>", rank = 1)]
-pub async fn theme_files(file: PathBuf, _build_id: String) -> Option<ThemeFile> {
+pub async fn theme_files(file: PathBuf, _build_id: &str) -> Option<ThemeFile> {
     NamedFile::open(Path::new("static/css/").join(file))
         .await
         .ok()
@@ -257,7 +257,7 @@ pub async fn theme_files(file: PathBuf, _build_id: String) -> Option<ThemeFile> 
 }
 
 #[get("/static/cached/<_build_id>/<file..>", rank = 2)]
-pub async fn plume_static_files(file: std::path::PathBuf, _build_id: String) -> Option<CachedFile> {
+pub async fn plume_static_files(file: std::path::PathBuf, _build_id: &str) -> Option<CachedFile> {
     static_files(file).await
 }
 

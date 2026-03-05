@@ -63,7 +63,7 @@ impl AsyncResolver for WebfingerResolver {
 }
 
 #[get("/.well-known/webfinger?<resource>")]
-pub async fn webfinger(resource: String, conn: DbConn) -> (ContentType, String) {
+pub async fn webfinger(resource: &str, conn: DbConn) -> (ContentType, String) {
     let resolver = WebfingerResolver { };
     match resolver.endpoint(resource, conn).await
         .and_then(|wf| serde_json::to_string(&wf).map_err(|_| ResolverError::NotFound))
