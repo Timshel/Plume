@@ -68,6 +68,8 @@ fn get_rocket_config() -> Result<RocketConfig, InvalidRocketConfig> {
         var("ROCKET_SECRET_KEY").map_err(|_| InvalidRocketConfig::SecretKey)?.as_bytes()
     );
 
+    c.cli_colors = var("ROCKET_CLI_COLORS").ok().map(|cc| cc.parse::<bool>().unwrap_or(false) ).unwrap_or(true);
+
     let form_size = var("FORM_SIZE")
         .unwrap_or_else(|_| "128".to_owned())
         .parse::<u64>()
