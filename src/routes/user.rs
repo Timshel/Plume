@@ -13,9 +13,7 @@ use std::{borrow::Cow, collections::HashMap};
 use validator::{Validate, ValidationError, ValidationErrors};
 
 use crate::inbox as crate_inbox;
-use crate::routes::{
-    email_signups::EmailSignupForm, errors::ErrorPage, Page, RemoteForm, RespondOrRedirect,
-};
+use crate::routes::{email_signups::EmailSignupForm, errors::ErrorPage, Page, RemoteForm, RespondOrRedirect};
 use crate::template_utils::{default_avatar, IntoContext, PostCard, Ructe};
 use crate::utils::requires_login;
 use plume_common::activity_pub::{broadcast, ActivityStream, ApRequest, CustomPerson};
@@ -56,10 +54,7 @@ pub async fn details(name: &str, rockets: PlumeRocket, mut conn: DbConn) -> Resu
         user.remote_user_found(); // Doesn't block
     }
 
-    let is_following = rockets.user
-        .clone()
-        .and_then(|x| x.is_following(&mut conn, user.id).ok())
-        .unwrap_or(false);
+    let is_following = rockets.user.clone().and_then(|x| x.is_following(&mut conn, user.id).ok()).unwrap_or(false);
     let is_remote = user.instance_id != Instance::get_local()?.id;
     let public_domain = user.get_instance(&mut conn)?.public_domain;
     let reshared = Reshare::get_recents_for_author(&mut conn, &user, 6)?
@@ -82,30 +77,23 @@ pub async fn details(name: &str, rockets: PlumeRocket, mut conn: DbConn) -> Resu
 
 #[get("/dashboard")]
 pub fn dashboard(user: User, mut conn: DbConn, rockets: PlumeRocket) -> Result<Ructe, ErrorPage> {
-    let blogs = Blog::find_for_author(&mut conn, &user)?.into_iter().map(|b| {
-        let banner = b.banner_url(&mut conn).unwrap_or_default();
-        (b, banner)
-    }).collect();
+    let blogs = Blog::find_for_author(&mut conn, &user)?
+        .into_iter()
+        .map(|b| {
+            let banner = b.banner_url(&mut conn).unwrap_or_default();
+            (b, banner)
+        })
+        .collect();
 
     let drafts = Post::drafts_by_author(&mut conn, &user)?;
     let pc = PostCard::from_posts(&mut conn, drafts, &rockets.user);
 
-    Ok(render!(users::dashboard_html(
-        &(&mut conn, &rockets).to_context(),
-        blogs,
-        pc
-    )))
+    Ok(render!(users::dashboard_html(&(&mut conn, &rockets).to_context(), blogs, pc)))
 }
 
 #[get("/dashboard", rank = 2)]
 pub fn dashboard_auth(i18n: I18n) -> Flash<Redirect> {
-    requires_login(
-        &i18n!(
-            i18n.catalog,
-            "To access your dashboard, you need to be logged in"
-        ),
-        uri!(dashboard),
-    )
+    requires_login(&i18n!(i18n.catalog, "To access your dashboard, you need to be logged in"), uri!(dashboard))
 }
 
 #[post("/@/<name>/follow")]
@@ -118,15 +106,10 @@ pub async fn follow(
     let target = User::find_by_fqn(&mut conn, name).await?;
     let message = if let Ok(follow) = follows::Follow::find(&mut conn, user.id, target.id) {
         let delete_act = follow.build_undo(&mut conn)?;
-        local_inbox(
-            &mut conn,
-            serde_json::to_value(&delete_act).map_err(Error::from)?,
-        ).await?;
+        local_inbox(&mut conn, serde_json::to_value(&delete_act).map_err(Error::from)?).await?;
 
         let msg = i18n!(rockets.intl.catalog, "You are no longer following {}."; target.name());
-        rockets
-            .worker
-            .execute(move || broadcast(&user, delete_act, vec![target], CONFIG.proxy().cloned()));
+        rockets.worker.execute(move || broadcast(&user, delete_act, vec![target], CONFIG.proxy().cloned()));
         msg
     } else {
         let f = follows::Follow::insert(
@@ -141,15 +124,10 @@ pub async fn follow(
 
         let act = f.to_activity(&mut conn)?;
         let msg = i18n!(rockets.intl.catalog, "You are now following {}."; target.name());
-        rockets
-            .worker
-            .execute(move || broadcast(&user, act, vec![target], CONFIG.proxy().cloned()));
+        rockets.worker.execute(move || broadcast(&user, act, vec![target], CONFIG.proxy().cloned()));
         msg
     };
-    Ok(Flash::success(
-        Redirect::to(uri!(details(name = name))),
-        message,
-    ))
+    Ok(Flash::success(Redirect::to(uri!(details(name = name))), message))
 }
 
 #[post("/@/<name>/follow", data = "<remote_form>", rank = 2)]
@@ -163,13 +141,11 @@ pub async fn follow_not_connected(
     let target = User::find_by_fqn(&mut conn, name).await?;
     let avatar_url = target.avatar_url(&mut conn);
     if let Some(remote_form) = remote_form {
-        if let Some(uri) = User::fetch_remote_interact_uri(&remote_form).await
-            .ok()
-            .and_then(|uri| {
-                let encoded = rocket::http::RawStr::new(&target.acct_authority(&mut conn).ok()?).percent_encode().to_string();
-                Some(uri.replace("{uri}", &encoded))
-            })
-        {
+        if let Some(uri) = User::fetch_remote_interact_uri(&remote_form).await.ok().and_then(|uri| {
+            let encoded =
+                rocket::http::RawStr::new(&target.acct_authority(&mut conn).ok()?).percent_encode().to_string();
+            Some(uri.replace("{uri}", &encoded))
+        }) {
             Ok(Redirect::to(uri).into())
         } else {
             let mut err = ValidationErrors::default();
@@ -216,13 +192,7 @@ pub async fn follow_not_connected(
 
 #[get("/@/<name>/follow?local", rank = 2)]
 pub fn follow_auth(name: String, i18n: I18n) -> Flash<Redirect> {
-    requires_login(
-        &i18n!(
-            i18n.catalog,
-            "To subscribe to someone, you need to be logged in"
-        ),
-        uri!(follow(name = name)),
-    )
+    requires_login(&i18n!(i18n.catalog, "To subscribe to someone, you need to be logged in"), uri!(follow(name = name)))
 }
 
 #[get("/@/<name>/followers?<page>", rank = 2)]
@@ -236,10 +206,7 @@ pub async fn followers(
     let user = User::find_by_fqn(&mut conn, name).await?;
     let avatar_url = user.avatar_url(&mut conn);
     let followers_count = user.count_followers(&mut conn)?;
-    let is_following = rockets.user
-        .clone()
-        .and_then(|x| x.is_following(&mut conn, user.id).ok())
-        .unwrap_or(false);
+    let is_following = rockets.user.clone().and_then(|x| x.is_following(&mut conn, user.id).ok()).unwrap_or(false);
     let is_remote = user.instance_id != Instance::get_local()?.id;
     let public_domain = user.get_instance(&mut conn)?.public_domain;
     let followers_page = user.get_followers_page(&mut conn, page.limits())?;
@@ -270,10 +237,7 @@ pub async fn followed(
     let avatar_url = user.avatar_url(&mut conn);
     let followed_count = user.count_followed(&mut conn)?;
 
-    let is_following = rockets.user
-        .clone()
-        .and_then(|x| x.is_following(&mut conn, user.id).ok())
-        .unwrap_or(false);
+    let is_following = rockets.user.clone().and_then(|x| x.is_following(&mut conn, user.id).ok()).unwrap_or(false);
     let is_remote = user.instance_id != Instance::get_local()?.id;
 
     let public_domain = user.get_instance(&mut conn)?.public_domain;
@@ -294,11 +258,7 @@ pub async fn followed(
 }
 
 #[get("/@/<name>", rank = 1)]
-pub async fn activity_details(
-    name: String,
-    mut conn: DbConn,
-    _ap: ApRequest,
-) -> Option<ActivityStream<CustomPerson>> {
+pub async fn activity_details(name: String, mut conn: DbConn, _ap: ApRequest) -> Option<ActivityStream<CustomPerson>> {
     let user = User::find_by_fqn(&mut conn, &name).await.ok()?;
     Some(ActivityStream::new(user.to_activity(&mut conn).ok()?))
 }
@@ -325,12 +285,7 @@ pub fn new(mut conn: DbConn, rockets: PlumeRocket) -> Result<Ructe, ErrorPage> {
 }
 
 #[get("/@/<name>/edit")]
-pub fn edit(
-    name: &str,
-    user: User,
-    mut conn: DbConn,
-    rockets: PlumeRocket,
-) -> Result<Ructe, ErrorPage> {
+pub fn edit(name: &str, user: User, mut conn: DbConn, rockets: PlumeRocket) -> Result<Ructe, ErrorPage> {
     if user.username == name && !name.contains('@') {
         Ok(render!(users::edit_html(
             &(&mut conn, &rockets).to_context(),
@@ -350,13 +305,7 @@ pub fn edit(
 
 #[get("/@/<name>/edit", rank = 2)]
 pub fn edit_auth(name: &str, i18n: I18n) -> Flash<Redirect> {
-    requires_login(
-        &i18n!(
-            i18n.catalog,
-            "To edit your profile, you need to be logged in"
-        ),
-        uri!(edit(name = name)),
-    )
+    requires_login(&i18n!(i18n.catalog, "To edit your profile, you need to be logged in"), uri!(edit(name = name)))
 }
 
 #[derive(FromForm)]
@@ -381,25 +330,19 @@ pub fn update(
     user.email = Some(form.email.clone());
     user.summary = form.summary.clone();
     user.summary_html = SafeString::new(
-        &md_to_html(
-            &form.summary,
-            None,
-            false,
-            Some(Media::get_media_processor(&mut conn, vec![&user])),
-        )
-        .0,
+        &md_to_html(&form.summary, None, false, Some(Media::get_media_processor(&mut conn, vec![&user]))).0,
     );
-    user.preferred_theme = form
-        .theme
-        .clone()
-        .and_then(|t| if t.is_empty() { None } else { Some(t) });
+    user.preferred_theme = form.theme.clone().and_then(|t| {
+        if t.is_empty() {
+            None
+        } else {
+            Some(t)
+        }
+    });
     user.hide_custom_css = form.hide_custom_css;
     user.save(&mut conn)?;
 
-    Ok(Flash::success(
-        Redirect::to(uri!(me)),
-        i18n!(intl.catalog, "Your profile has been updated."),
-    ))
+    Ok(Flash::success(Redirect::to(uri!(me)), i18n!(intl.catalog, "Your profile has been updated.")))
 }
 
 #[post("/@/<name>/delete")]
@@ -416,9 +359,7 @@ pub async fn delete(
 
         let target = User::one_by_instance(&mut conn)?;
         let delete_act = account.delete_activity(&mut conn)?;
-        rockets
-            .worker
-            .execute(move || broadcast(&account, delete_act, target, CONFIG.proxy().cloned()));
+        rockets.worker.execute(move || broadcast(&account, delete_act, target, CONFIG.proxy().cloned()));
 
         if let Some(cookie) = cookies.get_private(AUTH_COOKIE) {
             cookies.remove_private(cookie);
@@ -431,27 +372,17 @@ pub async fn delete(
     } else {
         Ok(Flash::error(
             Redirect::to(uri!(edit(name = name))),
-            i18n!(
-                rockets.intl.catalog,
-                "You can't delete someone else's account."
-            ),
+            i18n!(rockets.intl.catalog, "You can't delete someone else's account."),
         ))
     }
 }
 
 #[derive(Default, FromForm, Validate)]
-#[validate(schema(
-    function = "passwords_match",
-    skip_on_field_errors = false,
-    message = "Passwords are not matching"
-))]
+#[validate(schema(function = "passwords_match", skip_on_field_errors = false, message = "Passwords are not matching"))]
 pub struct NewUserForm {
     #[validate(
         length(min = 1, message = "Username can't be empty"),
-        custom(
-            function = "validate_username",
-            message = "User name is not allowed to contain any of < > & @ ' or \""
-        )
+        custom(function = "validate_username", message = "User name is not allowed to contain any of < > & @ ' or \"")
     )]
     pub username: String,
     #[validate(email(message = "Invalid email"))]
@@ -510,16 +441,10 @@ pub fn create(
     rockets: PlumeRocket,
     _enabled: signups::Password,
 ) -> Result<Flash<Redirect>, Ructe> {
-    if !Instance::get_local()
-        .map(|i| i.open_registrations)
-        .unwrap_or(true)
-    {
+    if !Instance::get_local().map(|i| i.open_registrations).unwrap_or(true) {
         return Ok(Flash::error(
             Redirect::to(uri!(new)),
-            i18n!(
-                rockets.intl.catalog,
-                "Registrations are closed on this instance."
-            ),
+            i18n!(rockets.intl.catalog, "Registrations are closed on this instance."),
         )); // Actually, it is an error
     }
 
@@ -536,7 +461,8 @@ pub fn create(
                 "",
                 form.email.to_string(),
                 Some(User::hash_pass(&form.password).map_err(to_validation)?),
-            ).map_err(to_validation)?;
+            )
+            .map_err(to_validation)?;
             Ok(Flash::success(
                 Redirect::to(uri!(super::session::new(m = _))),
                 i18n!(
@@ -548,9 +474,7 @@ pub fn create(
         .map_err(|err| {
             render!(users::new_html(
                 &(&mut conn, &rockets).to_context(),
-                Instance::get_local()
-                    .map(|i| i.open_registrations)
-                    .unwrap_or(true),
+                Instance::get_local().map(|i| i.open_registrations).unwrap_or(true),
                 &form,
                 err
             ))
@@ -563,11 +487,7 @@ pub async fn outbox(name: &str, mut conn: DbConn) -> Option<ActivityStream<Order
     user.outbox(&mut conn).ok()
 }
 #[get("/@/<name>/outbox?<page>")]
-pub async fn outbox_page(
-    name: &str,
-    page: Page,
-    mut conn: DbConn,
-) -> Option<ActivityStream<OrderedCollectionPage>> {
+pub async fn outbox_page(name: &str, page: Page, mut conn: DbConn) -> Option<ActivityStream<OrderedCollectionPage>> {
     let user = User::find_by_fqn(&mut conn, name).await.ok()?;
     user.outbox_page(&mut conn, page.limits()).ok()
 }
@@ -583,11 +503,7 @@ pub async fn inbox(
 }
 
 #[get("/@/<name>/followers", rank = 1)]
-pub async fn ap_followers(
-    name: &str,
-    mut conn: DbConn,
-    _ap: ApRequest,
-) -> Option<ActivityStream<OrderedCollection>> {
+pub async fn ap_followers(name: &str, mut conn: DbConn, _ap: ApRequest) -> Option<ActivityStream<OrderedCollection>> {
     let user = User::find_by_fqn(&mut conn, name).await.ok()?;
     let followers = user
         .get_followers(&mut conn)
@@ -608,14 +524,9 @@ pub async fn atom_feed(name: &str, mut conn: DbConn) -> Option<(ContentType, Str
     let conn = &mut conn;
     let author = User::find_by_fqn(conn, name).await.ok()?;
     let entries = Post::get_recents_for_author(conn, &author, 15).ok()?;
-    let uri = Instance::get_local()
-        .ok()?
-        .compute_box("@", name, "atom.xml");
+    let uri = Instance::get_local().ok()?.compute_box("@", name, "atom.xml");
     let title = &author.display_name;
     let default_updated = &author.creation_date;
     let feed = super::build_atom_feed(entries, &uri, title, default_updated, conn);
-    Some((
-        ContentType::new("application", "atom+xml"),
-        feed.to_string(),
-    ))
+    Some((ContentType::new("application", "atom+xml"), feed.to_string()))
 }

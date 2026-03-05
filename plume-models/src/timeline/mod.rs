@@ -40,11 +40,7 @@ impl Timeline {
     insert!(timeline_definition, NewTimeline);
     get!(timeline_definition);
 
-    pub fn find_for_user_by_name(
-        conn: &mut Connection,
-        user_id: Option<i32>,
-        name: &str,
-    ) -> Result<Self> {
+    pub fn find_for_user_by_name(conn: &mut Connection, user_id: Option<i32>, name: &str) -> Result<Self> {
         if let Some(user_id) = user_id {
             timeline_definition::table
                 .filter(timeline_definition::user_id.eq(user_id))
@@ -78,11 +74,7 @@ impl Timeline {
     pub fn list_all_for_user(conn: &mut Connection, user_id: Option<i32>) -> Result<Vec<Self>> {
         if let Some(user_id) = user_id {
             timeline_definition::table
-                .filter(
-                    timeline_definition::user_id
-                        .eq(user_id)
-                        .or(timeline_definition::user_id.is_null()),
-                )
+                .filter(timeline_definition::user_id.eq(user_id).or(timeline_definition::user_id.is_null()))
                 .load::<Self>(conn)
                 .map_err(Error::from)
         } else {
@@ -103,32 +95,22 @@ impl Timeline {
         })
     }
 
-    pub fn new_for_user(
-        conn: &mut Connection,
-        user_id: i32,
-        name: String,
-        query_string: String,
-    ) -> Result<Timeline> {
+    pub fn new_for_user(conn: &mut Connection, user_id: i32, name: String, query_string: String) -> Result<Timeline> {
         {
             let query = TimelineQuery::parse(&query_string)?; // verify the query is valid
-            if let Some(err) =
-                query
-                    .list_used_lists()
-                    .into_iter()
-                    .find_map(|(name, kind)| {
-                        let list = List::find_for_user_by_name(conn, Some(user_id), &name)
-                            .map(|l| l.kind() == kind);
-                        match list {
-                            Ok(true) => None,
-                            Ok(false) => Some(Error::TimelineQuery(QueryError::RuntimeError(
-                                format!("list '{}' has the wrong type for this usage", name),
-                            ))),
-                            Err(_) => Some(Error::TimelineQuery(QueryError::RuntimeError(
-                                format!("list '{}' was not found", name),
-                            ))),
-                        }
-                    })
-            {
+            if let Some(err) = query.list_used_lists().into_iter().find_map(|(name, kind)| {
+                let list = List::find_for_user_by_name(conn, Some(user_id), &name).map(|l| l.kind() == kind);
+                match list {
+                    Ok(true) => None,
+                    Ok(false) => Some(Error::TimelineQuery(QueryError::RuntimeError(format!(
+                        "list '{}' has the wrong type for this usage",
+                        name
+                    )))),
+                    Err(_) => {
+                        Some(Error::TimelineQuery(QueryError::RuntimeError(format!("list '{}' was not found", name))))
+                    }
+                }
+            }) {
                 return Err(err);
             }
         }
@@ -142,31 +124,22 @@ impl Timeline {
         )
     }
 
-    pub fn new_for_instance(
-        conn: &mut Connection,
-        name: String,
-        query_string: String,
-    ) -> Result<Timeline> {
+    pub fn new_for_instance(conn: &mut Connection, name: String, query_string: String) -> Result<Timeline> {
         {
             let query = TimelineQuery::parse(&query_string)?; // verify the query is valid
-            if let Some(err) =
-                query
-                    .list_used_lists()
-                    .into_iter()
-                    .find_map(|(name, kind)| {
-                        let list = List::find_for_user_by_name(conn, None, &name)
-                            .map(|l| l.kind() == kind);
-                        match list {
-                            Ok(true) => None,
-                            Ok(false) => Some(Error::TimelineQuery(QueryError::RuntimeError(
-                                format!("list '{}' has the wrong type for this usage", name),
-                            ))),
-                            Err(_) => Some(Error::TimelineQuery(QueryError::RuntimeError(
-                                format!("list '{}' was not found", name),
-                            ))),
-                        }
-                    })
-            {
+            if let Some(err) = query.list_used_lists().into_iter().find_map(|(name, kind)| {
+                let list = List::find_for_user_by_name(conn, None, &name).map(|l| l.kind() == kind);
+                match list {
+                    Ok(true) => None,
+                    Ok(false) => Some(Error::TimelineQuery(QueryError::RuntimeError(format!(
+                        "list '{}' has the wrong type for this usage",
+                        name
+                    )))),
+                    Err(_) => {
+                        Some(Error::TimelineQuery(QueryError::RuntimeError(format!("list '{}' was not found", name))))
+                    }
+                }
+            }) {
                 return Err(err);
             }
         }
@@ -187,10 +160,7 @@ impl Timeline {
     }
 
     pub fn delete(&self, conn: &mut Connection) -> Result<()> {
-        diesel::delete(self)
-            .execute(conn)
-            .map(|_| ())
-            .map_err(Error::from)
+        diesel::delete(self).execute(conn).map(|_| ()).map_err(Error::from)
     }
 
     pub fn get_latest(&self, conn: &mut Connection, count: i32) -> Result<Vec<Post>> {
@@ -219,9 +189,7 @@ impl Timeline {
     }
 
     pub async fn add_to_all_timelines(conn: &mut Connection, post: &Post, kind: &Kind) -> Result<()> {
-        let timelines = timeline_definition::table
-            .load::<Self>(conn)
-            .map_err(Error::from)?;
+        let timelines = timeline_definition::table.load::<Self>(conn).map_err(Error::from)?;
 
         for t in timelines {
             if t.matches(conn, post, kind).await? {
@@ -248,18 +216,13 @@ impl Timeline {
         if self.includes_post(conn, post)? {
             return Ok(false);
         }
-        diesel::delete(
-            timeline::table
-                .filter(timeline::timeline_id.eq(self.id))
-                .filter(timeline::post_id.eq(post.id)),
-        )
-        .execute(conn)?;
+        diesel::delete(timeline::table.filter(timeline::timeline_id.eq(self.id)).filter(timeline::post_id.eq(post.id)))
+            .execute(conn)?;
         Ok(true)
     }
 
     pub fn remove_all_posts(&self, conn: &mut Connection) -> Result<u64> {
-        let count = diesel::delete(timeline::table.filter(timeline::timeline_id.eq(self.id)))
-            .execute(conn)?;
+        let count = diesel::delete(timeline::table.filter(timeline::timeline_id.eq(self.id))).execute(conn)?;
         Ok(count as u64)
     }
 
@@ -270,9 +233,7 @@ impl Timeline {
 
     fn includes_post(&self, conn: &mut Connection, post: &Post) -> Result<bool> {
         diesel::dsl::select(diesel::dsl::exists(
-            timeline::table
-                .filter(timeline::timeline_id.eq(self.id))
-                .filter(timeline::post_id.eq(post.id)),
+            timeline::table.filter(timeline::timeline_id.eq(self.id)).filter(timeline::post_id.eq(post.id)),
         ))
         .get_result(conn)
         .map_err(Error::from)
@@ -301,21 +262,12 @@ mod tests {
         conn.test_transaction::<_, (), _>(|| {
             let users = userTests::fill_database(conn);
 
-            let mut tl1_u1 = Timeline::new_for_user(
-                conn,
-                users[0].id,
-                "my timeline".to_owned(),
-                "all".to_owned(),
-            )
-            .unwrap();
+            let mut tl1_u1 =
+                Timeline::new_for_user(conn, users[0].id, "my timeline".to_owned(), "all".to_owned()).unwrap();
             List::new(conn, "languages I speak", Some(&users[1]), ListType::Prefix).unwrap();
-            let tl2_u1 = Timeline::new_for_user(
-                conn,
-                users[0].id,
-                "another timeline".to_owned(),
-                "followed".to_owned(),
-            )
-            .unwrap();
+            let tl2_u1 =
+                Timeline::new_for_user(conn, users[0].id, "another timeline".to_owned(), "followed".to_owned())
+                    .unwrap();
             let tl1_u2 = Timeline::new_for_user(
                 conn,
                 users[1].id,
@@ -323,23 +275,12 @@ mod tests {
                 "lang in \"languages I speak\"".to_owned(),
             )
             .unwrap();
-            let tl1_instance = Timeline::new_for_instance(
-                conn,
-                "english posts".to_owned(),
-                "license in [cc]".to_owned(),
-            )
-            .unwrap();
+            let tl1_instance =
+                Timeline::new_for_instance(conn, "english posts".to_owned(), "license in [cc]".to_owned()).unwrap();
 
             assert_eq!(tl1_u1, Timeline::get(conn, tl1_u1.id).unwrap());
-            assert_eq!(
-                tl2_u1,
-                Timeline::find_for_user_by_name(conn, Some(users[0].id), "another timeline")
-                    .unwrap()
-            );
-            assert_eq!(
-                tl1_instance,
-                Timeline::find_for_user_by_name(conn, None, "english posts").unwrap()
-            );
+            assert_eq!(tl2_u1, Timeline::find_for_user_by_name(conn, Some(users[0].id), "another timeline").unwrap());
+            assert_eq!(tl1_instance, Timeline::find_for_user_by_name(conn, None, "english posts").unwrap());
 
             let tl_u1 = Timeline::list_for_user(conn, Some(users[0].id)).unwrap();
             assert_eq!(3, tl_u1.len()); // it is not 2 because there is a "Your feed" tl created for each user automatically
@@ -367,19 +308,9 @@ mod tests {
         conn.test_transaction::<_, (), _>(|| {
             let users = userTests::fill_database(conn);
 
-            assert!(Timeline::new_for_user(
-                conn,
-                users[0].id,
-                "my timeline".to_owned(),
-                "invalid keyword".to_owned(),
-            )
-            .is_err());
-            assert!(Timeline::new_for_instance(
-                conn,
-                "my timeline".to_owned(),
-                "invalid keyword".to_owned(),
-            )
-            .is_err());
+            assert!(Timeline::new_for_user(conn, users[0].id, "my timeline".to_owned(), "invalid keyword".to_owned(),)
+                .is_err());
+            assert!(Timeline::new_for_instance(conn, "my timeline".to_owned(), "invalid keyword".to_owned(),).is_err());
 
             assert!(Timeline::new_for_user(
                 conn,
@@ -388,29 +319,18 @@ mod tests {
                 "author in non_existant_list".to_owned(),
             )
             .is_err());
-            assert!(Timeline::new_for_instance(
-                conn,
-                "my timeline".to_owned(),
-                "lang in dont-exist".to_owned(),
-            )
-            .is_err());
+            assert!(
+                Timeline::new_for_instance(conn, "my timeline".to_owned(), "lang in dont-exist".to_owned(),).is_err()
+            );
 
             List::new(conn, "friends", Some(&users[0]), ListType::User).unwrap();
             List::new(conn, "idk", None, ListType::Blog).unwrap();
 
-            assert!(Timeline::new_for_user(
-                conn,
-                users[0].id,
-                "my timeline".to_owned(),
-                "blog in friends".to_owned(),
-            )
-            .is_err());
-            assert!(Timeline::new_for_instance(
-                conn,
-                "my timeline".to_owned(),
-                "not author in idk".to_owned(),
-            )
-            .is_err());
+            assert!(Timeline::new_for_user(conn, users[0].id, "my timeline".to_owned(), "blog in friends".to_owned(),)
+                .is_err());
+            assert!(
+                Timeline::new_for_instance(conn, "my timeline".to_owned(), "not author in idk".to_owned(),).is_err()
+            );
 
             Ok(())
         });
@@ -466,9 +386,7 @@ mod tests {
                 },
             )
             .unwrap();
-            assert!(!gnu_tl
-                .matches(conn, &non_free_post, Kind::Original)
-                .unwrap());
+            assert!(!gnu_tl.matches(conn, &non_free_post, Kind::Original).unwrap());
 
             Ok(())
         });
@@ -489,16 +407,14 @@ mod tests {
             )
             .unwrap();
 
-            let fav_blogs_list =
-                List::new(conn, "fav_blogs", Some(&users[0]), ListType::Blog).unwrap();
+            let fav_blogs_list = List::new(conn, "fav_blogs", Some(&users[0]), ListType::Blog).unwrap();
             fav_blogs_list.add_blogs(conn, &[blogs[0].id]).unwrap();
 
             let my_tl = Timeline::new_for_user(
                 conn,
                 users[0].id,
                 "My timeline".to_owned(),
-                "blog in fav_blogs and not has_cover or local and followed exclude likes"
-                    .to_owned(),
+                "blog in fav_blogs and not has_cover or local and followed exclude likes".to_owned(),
             )
             .unwrap();
 
@@ -527,9 +443,7 @@ mod tests {
                     blog_id: blogs[1].id,
                     slug: "about-linux-2".to_string(),
                     title: "About Linux (2)".to_string(),
-                    content: SafeString::new(
-                        "Actually, GNU+Linux, GNU×Linux, or GNU¿Linux are better.",
-                    ),
+                    content: SafeString::new("Actually, GNU+Linux, GNU×Linux, or GNU¿Linux are better."),
                     published: true,
                     license: "GPL".to_string(),
                     source: "Actually, GNU+Linux, GNU×Linux, or GNU¿Linux are better.".to_string(),
@@ -640,9 +554,7 @@ mod tests {
                 },
             )
             .unwrap();
-            gnu_post
-                .update_tags(conn, vec![Tag::build_activity("free".to_owned()).unwrap()])
-                .unwrap();
+            gnu_post.update_tags(conn, vec![Tag::build_activity("free".to_owned()).unwrap()]).unwrap();
             PostAuthor::insert(
                 conn,
                 NewPostAuthor {
@@ -675,10 +587,7 @@ mod tests {
                 conn,
                 users[0].id,
                 "author timeline".to_owned(),
-                format!(
-                    "author in [{}]",
-                    blogs[0].list_authors(conn).unwrap()[0].fqn
-                ),
+                format!("author in [{}]", blogs[0].list_authors(conn).unwrap()[0].fqn),
             )
             .unwrap();
             assert!(tl.matches(conn, &gnu_post, Kind::Original).unwrap());
@@ -691,54 +600,34 @@ mod tests {
             )
             .unwrap();
             assert!(!tl.matches(conn, &gnu_post, Kind::Original).unwrap());
-            assert!(tl
-                .matches(conn, &gnu_post, Kind::Reshare(&users[2]))
-                .unwrap());
+            assert!(tl.matches(conn, &gnu_post, Kind::Reshare(&users[2])).unwrap());
             assert!(!tl.matches(conn, &gnu_post, Kind::Like(&users[2])).unwrap());
             tl.delete(conn).unwrap();
             let tl = Timeline::new_for_user(
                 conn,
                 users[0].id,
                 "author timeline".to_owned(),
-                format!(
-                    "author in [{}] include likes exclude reshares",
-                    users[2].fqn
-                ),
+                format!("author in [{}] include likes exclude reshares", users[2].fqn),
             )
             .unwrap();
             assert!(!tl.matches(conn, &gnu_post, Kind::Original).unwrap());
-            assert!(!tl
-                .matches(conn, &gnu_post, Kind::Reshare(&users[2]))
-                .unwrap());
+            assert!(!tl.matches(conn, &gnu_post, Kind::Reshare(&users[2])).unwrap());
             assert!(tl.matches(conn, &gnu_post, Kind::Like(&users[2])).unwrap());
             tl.delete(conn).unwrap();
 
-            let tl = Timeline::new_for_user(
-                conn,
-                users[0].id,
-                "tag timeline".to_owned(),
-                "tags in [free]".to_owned(),
-            )
-            .unwrap();
+            let tl = Timeline::new_for_user(conn, users[0].id, "tag timeline".to_owned(), "tags in [free]".to_owned())
+                .unwrap();
             assert!(tl.matches(conn, &gnu_post, Kind::Original).unwrap());
             tl.delete(conn).unwrap();
-            let tl = Timeline::new_for_user(
-                conn,
-                users[0].id,
-                "tag timeline".to_owned(),
-                "tags in [private]".to_owned(),
-            )
-            .unwrap();
+            let tl =
+                Timeline::new_for_user(conn, users[0].id, "tag timeline".to_owned(), "tags in [private]".to_owned())
+                    .unwrap();
             assert!(!tl.matches(conn, &gnu_post, Kind::Original).unwrap());
             tl.delete(conn).unwrap();
 
-            let tl = Timeline::new_for_user(
-                conn,
-                users[0].id,
-                "english timeline".to_owned(),
-                "lang in [en]".to_owned(),
-            )
-            .unwrap();
+            let tl =
+                Timeline::new_for_user(conn, users[0].id, "english timeline".to_owned(), "lang in [en]".to_owned())
+                    .unwrap();
             assert!(tl.matches(conn, &gnu_post, Kind::Original).unwrap());
             tl.delete(conn).unwrap();
             let tl = Timeline::new_for_user(
@@ -813,13 +702,9 @@ mod tests {
             )
             .unwrap();
 
-            let tl = Timeline::new_for_user(
-                conn,
-                users[0].id,
-                "Linux title".to_owned(),
-                "title contains Linux".to_owned(),
-            )
-            .unwrap();
+            let tl =
+                Timeline::new_for_user(conn, users[0].id, "Linux title".to_owned(), "title contains Linux".to_owned())
+                    .unwrap();
             assert!(tl.matches(conn, &gnu_post, Kind::Original).unwrap());
             tl.delete(conn).unwrap();
             let tl = Timeline::new_for_user(

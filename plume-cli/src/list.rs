@@ -8,20 +8,14 @@ pub fn command() -> Command {
         .subcommand(
             Command::new("new")
                 .arg(
-                    Arg::new("name")
-                        .short('n')
-                        .long("name")
-                        .action(clap::ArgAction::Set)
-                        .help("The name of this list"),
+                    Arg::new("name").short('n').long("name").action(clap::ArgAction::Set).help("The name of this list"),
                 )
                 .arg(
                     Arg::new("type")
                         .short('t')
                         .long("type")
                         .action(clap::ArgAction::Set)
-                        .help(
-                            r#"The type of this list (one of "user", "blog", "word" or "prefix")"#,
-                        ),
+                        .help(r#"The type of this list (one of "user", "blog", "word" or "prefix")"#),
                 )
                 .arg(
                     Arg::new("user")
@@ -73,13 +67,7 @@ pub fn command() -> Command {
                         .action(clap::ArgAction::Set)
                         .help("Username of whom this list is for. Empty for instance list"),
                 )
-                .arg(
-                    Arg::new("value")
-                        .short('v')
-                        .long("value")
-                        .action(clap::ArgAction::Set)
-                        .help("The value to add"),
-                )
+                .arg(Arg::new("value").short('v').long("value").action(clap::ArgAction::Set).help("The value to add"))
                 .about("Add element to a list"),
         )
         .subcommand(
@@ -99,11 +87,7 @@ pub fn command() -> Command {
                         .help("Username of whom this list is for. Empty for instance list"),
                 )
                 .arg(
-                    Arg::new("value")
-                        .short('v')
-                        .long("value")
-                        .action(clap::ArgAction::Set)
-                        .help("The value to remove"),
+                    Arg::new("value").short('v').long("value").action(clap::ArgAction::Set).help("The value to remove"),
                 )
                 .about("Remove element from list"),
         )
@@ -119,22 +103,18 @@ pub async fn run(mut args: ArgMatches, conn: &mut Connection) {
             _ => command().print_help().unwrap(),
         }
     } else {
-      println!("Unknown subcommand");
+        println!("Unknown subcommand");
     }
 }
 
 fn get_list_identifier(args: &mut ArgMatches) -> (String, Option<String>) {
-    let name = args
-        .remove_one::<String>("name")
-        .expect("No name provided for the list");
+    let name = args.remove_one::<String>("name").expect("No name provided for the list");
     let user = args.remove_one::<String>("user");
     (name, user)
 }
 
 fn get_list_type(args: &mut ArgMatches) -> ListType {
-    let typ = args
-        .remove_one::<String>("type")
-        .expect("No name type for the list");
+    let typ = args.remove_one::<String>("type").expect("No name type for the list");
 
     match typ.as_str() {
         "user" => ListType::User,
@@ -173,8 +153,7 @@ fn delete(mut args: ArgMatches, conn: &mut Connection) {
 
     let user = user.map(|user| resolve_user(&user, conn));
 
-    let list =
-        List::find_for_user_by_name(conn, user.map(|u| u.id), &name).expect("list not found");
+    let list = List::find_for_user_by_name(conn, user.map(|u| u.id), &name).expect("list not found");
 
     list.delete(conn).expect("Failed to update list");
 }
@@ -185,8 +164,7 @@ async fn add(mut args: ArgMatches, conn: &mut Connection) {
 
     let user = user.map(|user| resolve_user(&user, conn));
 
-    let list =
-        List::find_for_user_by_name(conn, user.map(|u| u.id), &name).expect("list not found");
+    let list = List::find_for_user_by_name(conn, user.map(|u| u.id), &name).expect("list not found");
 
     match list.kind() {
         ListType::Blog => {
@@ -220,8 +198,7 @@ async fn rm(mut args: ArgMatches, conn: &mut Connection) {
 
     let user = user.map(|user| resolve_user(&user, conn));
 
-    let list =
-        List::find_for_user_by_name(conn, user.map(|u| u.id), &name).expect("list not found");
+    let list = List::find_for_user_by_name(conn, user.map(|u| u.id), &name).expect("list not found");
 
     match list.kind() {
         ListType::Blog => {

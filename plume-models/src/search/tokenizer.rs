@@ -24,9 +24,7 @@ impl From<TokenizerKind> for TextAnalyzer {
             Ngram => TextAnalyzer::builder(NgramTokenizer::new(2, 8, false).unwrap()).filter(LowerCaser).build(),
             Whitespace => TextAnalyzer::builder(WhitespaceTokenizer).filter(LowerCaser).build(),
             #[cfg(feature = "search-lindera")]
-            Lindera => {
-                TextAnalyzer::builder(LinderaTokenizer::new("decompose", "")).filter(LowerCaser).build()
-            }
+            Lindera => TextAnalyzer::builder(LinderaTokenizer::new("decompose", "")).filter(LowerCaser).build(),
         }
     }
 }

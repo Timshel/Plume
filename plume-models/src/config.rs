@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::env::{self, var};
 
 #[cfg(feature = "s3")]
-use s3::{Bucket, Region, creds::Credentials};
+use s3::{creds::Credentials, Bucket, Region};
 
 #[cfg(not(test))]
 const DB_NAME: &str = "plume";
@@ -59,29 +59,19 @@ fn get_rocket_config() -> Result<RocketConfig, InvalidRocketConfig> {
 
     let mut c = RocketConfig::default();
 
-    c.address = var("ROCKET_ADDRESS").unwrap_or("127.0.0.1".to_string()).parse().map_err(|_| InvalidRocketConfig::Address)?;
-    c.port = var("ROCKET_PORT")
-        .ok()
-        .map(|s| s.parse::<u16>().unwrap())
-        .unwrap_or(7878);
+    c.address =
+        var("ROCKET_ADDRESS").unwrap_or("127.0.0.1".to_string()).parse().map_err(|_| InvalidRocketConfig::Address)?;
+    c.port = var("ROCKET_PORT").ok().map(|s| s.parse::<u16>().unwrap()).unwrap_or(7878);
     c.secret_key = rocket::config::SecretKey::from(
-        var("ROCKET_SECRET_KEY").map_err(|_| InvalidRocketConfig::SecretKey)?.as_bytes()
+        var("ROCKET_SECRET_KEY").map_err(|_| InvalidRocketConfig::SecretKey)?.as_bytes(),
     );
 
-    c.cli_colors = var("ROCKET_CLI_COLORS").ok().map(|cc| cc.parse::<bool>().unwrap_or(false) ).unwrap_or(true);
+    c.cli_colors = var("ROCKET_CLI_COLORS").ok().map(|cc| cc.parse::<bool>().unwrap_or(false)).unwrap_or(true);
 
-    let form_size = var("FORM_SIZE")
-        .unwrap_or_else(|_| "128".to_owned())
-        .parse::<u64>()
-        .unwrap();
-    let activity_size = var("ACTIVITY_SIZE")
-        .unwrap_or_else(|_| "1024".to_owned())
-        .parse::<u64>()
-        .unwrap();
+    let form_size = var("FORM_SIZE").unwrap_or_else(|_| "128".to_owned()).parse::<u64>().unwrap();
+    let activity_size = var("ACTIVITY_SIZE").unwrap_or_else(|_| "1024".to_owned()).parse::<u64>().unwrap();
 
-    c.limits = Limits::default()
-        .limit("forms", form_size.kilobytes())
-        .limit("json", activity_size.kilobytes());
+    c.limits = Limits::default().limit("forms", form_size.kilobytes()).limit("json", activity_size.kilobytes());
 
     Ok(c)
 }
@@ -120,46 +110,14 @@ impl Default for LogoConfig {
             image_type: image_type.map(str::to_owned),
         };
         let icons = [
-            (
-                "icons/trwnh/feather/plumeFeather48.png",
-                Some("48x48"),
-                Some("image/png"),
-            ),
-            (
-                "icons/trwnh/feather/plumeFeather72.png",
-                Some("72x72"),
-                Some("image/png"),
-            ),
-            (
-                "icons/trwnh/feather/plumeFeather96.png",
-                Some("96x96"),
-                Some("image/png"),
-            ),
-            (
-                "icons/trwnh/feather/plumeFeather144.png",
-                Some("144x144"),
-                Some("image/png"),
-            ),
-            (
-                "icons/trwnh/feather/plumeFeather160.png",
-                Some("160x160"),
-                Some("image/png"),
-            ),
-            (
-                "icons/trwnh/feather/plumeFeather192.png",
-                Some("192x192"),
-                Some("image/png"),
-            ),
-            (
-                "icons/trwnh/feather/plumeFeather256.png",
-                Some("256x256"),
-                Some("image/png"),
-            ),
-            (
-                "icons/trwnh/feather/plumeFeather512.png",
-                Some("512x512"),
-                Some("image/png"),
-            ),
+            ("icons/trwnh/feather/plumeFeather48.png", Some("48x48"), Some("image/png")),
+            ("icons/trwnh/feather/plumeFeather72.png", Some("72x72"), Some("image/png")),
+            ("icons/trwnh/feather/plumeFeather96.png", Some("96x96"), Some("image/png")),
+            ("icons/trwnh/feather/plumeFeather144.png", Some("144x144"), Some("image/png")),
+            ("icons/trwnh/feather/plumeFeather160.png", Some("160x160"), Some("image/png")),
+            ("icons/trwnh/feather/plumeFeather192.png", Some("192x192"), Some("image/png")),
+            ("icons/trwnh/feather/plumeFeather256.png", Some("256x256"), Some("image/png")),
+            ("icons/trwnh/feather/plumeFeather512.png", Some("512x512"), Some("image/png")),
             ("icons/trwnh/feather/plumeFeather.svg", None, None),
         ]
         .iter()
@@ -167,9 +125,7 @@ impl Default for LogoConfig {
         .collect();
 
         let custom_main = var("PLUME_LOGO").ok();
-        let custom_favicon = var("PLUME_LOGO_FAVICON")
-            .ok()
-            .or_else(|| custom_main.clone());
+        let custom_favicon = var("PLUME_LOGO_FAVICON").ok().or_else(|| custom_main.clone());
         let other = if let Some(main) = custom_main.clone() {
             let ext = |path: &str| match path.rsplit_once('.').map(|x| x.1) {
                 Some("png") => Some("image/png".to_owned()),
@@ -179,10 +135,7 @@ impl Default for LogoConfig {
                 _ => None,
             };
             let mut custom_icons = env::vars()
-                .filter_map(|(var, val)| {
-                    var.strip_prefix("PLUME_LOGO_")
-                        .map(|size| (size.to_owned(), val))
-                })
+                .filter_map(|(var, val)| var.strip_prefix("PLUME_LOGO_").map(|size| (size.to_owned(), val)))
                 .filter_map(|(var, val)| var.parse::<u64>().ok().map(|var| (var, val)))
                 .map(|(dim, src)| Icon {
                     image_type: ext(&src),
@@ -201,11 +154,8 @@ impl Default for LogoConfig {
         };
 
         LogoConfig {
-            main: custom_main
-                .unwrap_or_else(|| "icons/trwnh/feather/plumeFeather256.png".to_owned()),
-            favicon: custom_favicon.unwrap_or_else(|| {
-                "icons/trwnh/feather-filled/plumeFeatherFilled64.png".to_owned()
-            }),
+            main: custom_main.unwrap_or_else(|| "icons/trwnh/feather/plumeFeather256.png".to_owned()),
+            favicon: custom_favicon.unwrap_or_else(|| "icons/trwnh/feather-filled/plumeFeatherFilled64.png".to_owned()),
             other,
         }
     }
@@ -228,10 +178,7 @@ impl SearchTokenizerConfig {
                 #[cfg(feature = "search-lindera")]
                 Self {
                     tag_tokenizer: Self::determine_tokenizer("SEARCH_TAG_TOKENIZER", Lindera),
-                    content_tokenizer: Self::determine_tokenizer(
-                        "SEARCH_CONTENT_TOKENIZER",
-                        Lindera,
-                    ),
+                    content_tokenizer: Self::determine_tokenizer("SEARCH_CONTENT_TOKENIZER", Lindera),
                     property_tokenizer: Ngram,
                 }
             }
@@ -276,9 +223,7 @@ fn get_mail_config() -> Option<MailConfig> {
             "smtp" => SMTP_PORT,
             "submissions" => SUBMISSIONS_PORT,
             "submission" => SUBMISSION_PORT,
-            number => number
-                .parse()
-                .expect(r#"MAIL_PORT must be "smtp", "submissions", "submission" or an integer."#),
+            number => number.parse().expect(r#"MAIL_PORT must be "smtp", "submissions", "submission" or an integer."#),
         }),
         helo_name: env::var("MAIL_HELO_NAME").unwrap_or_else(|_| "localhost".to_owned()),
         username: env::var("MAIL_USER").ok()?,
@@ -327,17 +272,14 @@ pub struct ProxyConfig {
 fn get_proxy_config() -> Option<ProxyConfig> {
     let url: reqwest::Url = var("PROXY_URL").ok()?.parse().expect("Invalid PROXY_URL");
     let proxy_url = url.clone();
-    let only_domains: Option<HashSet<String>> = var("PROXY_DOMAINS")
-        .ok()
-        .map(|ods| ods.split(',').map(str::to_owned).collect());
+    let only_domains: Option<HashSet<String>> =
+        var("PROXY_DOMAINS").ok().map(|ods| ods.split(',').map(str::to_owned).collect());
     let proxy = if let Some(ref only_domains) = only_domains {
         let only_domains = only_domains.clone();
         reqwest::Proxy::custom(move |url| {
             if let Some(domain) = url.domain() {
                 if only_domains.contains(domain)
-                    || only_domains
-                        .iter()
-                        .any(|target| domain.ends_with(&format!(".{}", target)))
+                    || only_domains.iter().any(|target| domain.ends_with(&format!(".{}", target)))
                 {
                     Some(proxy_url.clone())
                 } else {
@@ -457,23 +399,16 @@ fn get_s3_config() -> Option<S3Config> {
 
 lazy_static! {
     pub static ref CONFIG: Config = Config {
-        base_url: var("BASE_URL").unwrap_or_else(|_| format!(
-            "127.0.0.1:{}",
-            var("ROCKET_PORT").unwrap_or_else(|_| "7878".to_owned())
-        )),
+        base_url: var("BASE_URL")
+            .unwrap_or_else(|_| format!("127.0.0.1:{}", var("ROCKET_PORT").unwrap_or_else(|_| "7878".to_owned()))),
         db_name: DB_NAME,
-        db_max_size: var("DB_MAX_SIZE").map_or(None, |s| Some(
-            s.parse::<u32>()
-                .expect("Couldn't parse DB_MAX_SIZE into u32")
-        )),
-        db_min_idle: var("DB_MIN_IDLE").map_or(None, |s| Some(
-            s.parse::<u32>()
-                .expect("Couldn't parse DB_MIN_IDLE into u32")
-        )),
+        db_max_size: var("DB_MAX_SIZE")
+            .map_or(None, |s| Some(s.parse::<u32>().expect("Couldn't parse DB_MAX_SIZE into u32"))),
+        db_min_idle: var("DB_MIN_IDLE")
+            .map_or(None, |s| Some(s.parse::<u32>().expect("Couldn't parse DB_MIN_IDLE into u32"))),
         signup: var("SIGNUP").map_or(SignupStrategy::default(), |s| s.parse().unwrap()),
         #[cfg(feature = "postgres")]
-        database_url: var("DATABASE_URL")
-            .unwrap_or_else(|_| format!("postgres://plume:plume@localhost/{}", DB_NAME)),
+        database_url: var("DATABASE_URL").unwrap_or_else(|_| format!("postgres://plume:plume@localhost/{}", DB_NAME)),
         #[cfg(feature = "sqlite")]
         database_url: var("DATABASE_URL").unwrap_or_else(|_| format!("{}.sqlite", DB_NAME)),
         search_index: var("SEARCH_INDEX").unwrap_or_else(|_| "search_index".to_owned()),
@@ -481,8 +416,7 @@ lazy_static! {
         rocket: get_rocket_config(),
         logo: LogoConfig::default(),
         default_theme: var("DEFAULT_THEME").unwrap_or_else(|_| "default-light".to_owned()),
-        media_directory: var("MEDIA_UPLOAD_DIRECTORY")
-            .unwrap_or_else(|_| "static/media".to_owned()),
+        media_directory: var("MEDIA_UPLOAD_DIRECTORY").unwrap_or_else(|_| "static/media".to_owned()),
         mail: get_mail_config(),
         ldap: get_ldap_config(),
         proxy: get_proxy_config(),

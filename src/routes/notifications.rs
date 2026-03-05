@@ -27,21 +27,13 @@ pub fn notifications(
         })
         .collect();
 
-    Ok(render!(notifications::index_html(
-        &(&mut conn, &rockets).to_context(),
-        notifs,
-        page.0,
-        page_total
-    )))
+    Ok(render!(notifications::index_html(&(&mut conn, &rockets).to_context(), notifs, page.0, page_total)))
 }
 
 #[get("/notifications?<page>", rank = 2)]
 pub fn notifications_auth(i18n: I18n, page: Option<Page>) -> Flash<Redirect> {
     requires_login(
-        &i18n!(
-            i18n.catalog,
-            "To see your notifications, you need to be logged in"
-        ),
+        &i18n!(i18n.catalog, "To see your notifications, you need to be logged in"),
         uri!(notifications(page = page)),
     )
 }

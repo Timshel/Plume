@@ -77,10 +77,9 @@ pub type Translations = Vec<(&'static str, Catalog)>;
 /// use `gettext_macros::include_i18n`.
 pub fn i18n(domain: &str, lang: Vec<&'static str>) -> Translations {
     lang.iter().fold(Vec::new(), |mut trans, l| {
-        let mo_file = fs::File::open(format!("translations/{}/LC_MESSAGES/{}.mo", l, domain))
-            .expect("Couldn't open catalog");
-        let cat = Catalog::parse(mo_file)
-            .unwrap_or_else(|_| panic!("Error while loading catalog ({})", l));
+        let mo_file =
+            fs::File::open(format!("translations/{}/LC_MESSAGES/{}.mo", l, domain)).expect("Couldn't open catalog");
+        let cat = Catalog::parse(mo_file).unwrap_or_else(|_| panic!("Error while loading catalog ({})", l));
         trans.push((l, cat));
         trans
     })

@@ -30,8 +30,7 @@ pub fn try_format<'a>(
             pattern.push(text);
             vars.push(
                 argv.get::<usize>(if arg.len() > 0 {
-                    arg.parse()
-                        .map_err(|_| FormatError::InvalidPositionalArgument)?
+                    arg.parse().map_err(|_| FormatError::InvalidPositionalArgument)?
                 } else {
                     i
                 })
@@ -55,7 +54,6 @@ pub fn try_format<'a>(
     }
     ::std::result::Result::Ok(res)
 }
-
 
 #[cfg(test)]
 mod tests {

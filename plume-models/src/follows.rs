@@ -1,6 +1,5 @@
 use crate::{
-    ap_url, instance::Instance, notifications::*, schema::follows, users::User, Connection, Error,
-    Result, CONFIG,
+    ap_url, instance::Instance, notifications::*, schema::follows, users::User, Connection, Error, Result, CONFIG,
 };
 use activitystreams::{
     activity::{Accept, Follow as FollowAct, Undo},
@@ -34,16 +33,12 @@ pub struct NewFollow {
 }
 
 impl Follow {
-    insert!(
-        follows,
-        NewFollow,
-        |inserted, conn| if inserted.ap_url.is_empty() {
-            inserted.ap_url = ap_url(&format!("{}/follows/{}", CONFIG.base_url, inserted.id));
-            inserted.save_changes(conn).map_err(Error::from)
-        } else {
-            Ok(inserted)
-        }
-    );
+    insert!(follows, NewFollow, |inserted, conn| if inserted.ap_url.is_empty() {
+        inserted.ap_url = ap_url(&format!("{}/follows/{}", CONFIG.base_url, inserted.id));
+        inserted.save_changes(conn).map_err(Error::from)
+    } else {
+        Ok(inserted)
+    });
     get!(follows);
     find_by!(follows, find_by_ap_url, ap_url as &str);
 
@@ -97,11 +92,7 @@ impl Follow {
             NewFollow {
                 follower_id: from_id,
                 following_id: target_id,
-                ap_url: follow
-                    .object_unchecked()
-                    .as_single_id()
-                    .ok_or(Error::MissingApProperty)?
-                    .to_string(),
+                ap_url: follow.object_unchecked().as_single_id().ok_or(Error::MissingApProperty)?.to_string(),
             },
         )?;
         res.notify(conn)?;
@@ -117,15 +108,8 @@ impl Follow {
         target: &A,
         follow: FollowAct,
     ) -> Result<Accept> {
-        let mut accept = Accept::new(
-            target.clone().into_id().parse::<IriString>()?,
-            AnyBase::from_extended(follow)?,
-        );
-        let accept_id = ap_url(&format!(
-            "{}/follows/{}/accept",
-            CONFIG.base_url.as_str(),
-            self.id
-        ));
+        let mut accept = Accept::new(target.clone().into_id().parse::<IriString>()?, AnyBase::from_extended(follow)?);
+        let accept_id = ap_url(&format!("{}/follows/{}/accept", CONFIG.base_url.as_str(), self.id));
         accept.set_id(accept_id.parse::<IriString>()?);
         accept.set_many_tos(vec![from.clone().into_id().parse::<IriString>()?]);
         accept.set_many_ccs(vec![PUBLIC_VISIBILITY.parse::<IriString>()?]);
@@ -135,15 +119,11 @@ impl Follow {
 
     pub fn build_undo(&self, conn: &mut Connection) -> Result<Undo> {
         let mut undo = Undo::new(
-            User::get(conn, self.follower_id)?
-                .ap_url
-                .parse::<IriString>()?,
+            User::get(conn, self.follower_id)?.ap_url.parse::<IriString>()?,
             self.ap_url.parse::<IriString>()?,
         );
         undo.set_id(format!("{}/undo", self.ap_url).parse::<IriString>()?);
-        undo.set_many_tos(vec![User::get(conn, self.following_id)?
-            .ap_url
-            .parse::<IriString>()?]);
+        undo.set_many_tos(vec![User::get(conn, self.following_id)?.ap_url.parse::<IriString>()?]);
         undo.set_many_ccs(vec![PUBLIC_VISIBILITY.parse::<IriString>()?]);
 
         Ok(undo)
@@ -173,11 +153,7 @@ impl FromId<Connection> for Follow {
     async fn from_activity(conn: &mut Connection, follow: FollowAct) -> Result<Self> {
         let actor = User::from_id(
             conn,
-            follow
-                .actor_unchecked()
-                .as_single_id()
-                .ok_or(Error::MissingApProperty)?
-                .as_str(),
+            follow.actor_unchecked().as_single_id().ok_or(Error::MissingApProperty)?.as_str(),
             None,
             CONFIG.proxy(),
         )
@@ -186,11 +162,7 @@ impl FromId<Connection> for Follow {
 
         let target = User::from_id(
             conn,
-            follow
-                .object_unchecked()
-                .as_single_id()
-                .ok_or(Error::MissingApProperty)?
-                .as_str(),
+            follow.object_unchecked().as_single_id().ok_or(Error::MissingApProperty)?.as_str(),
             None,
             CONFIG.proxy(),
         )
@@ -234,9 +206,7 @@ impl IntoId for Follow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        db_conn::DbConn, tests::db, users::tests as user_tests, users::tests::fill_database,
-    };
+    use crate::{db_conn::DbConn, tests::db, users::tests as user_tests, users::tests::fill_database};
     use assert_json_diff::assert_json_eq;
     use diesel::Connection;
     use serde_json::{json, to_value};
@@ -274,10 +244,7 @@ mod tests {
                 },
             )
             .expect("Couldn't insert new follow");
-            assert_eq!(
-                follow.ap_url,
-                format!("https://{}/follows/{}", CONFIG.base_url, follow.id)
-            );
+            assert_eq!(follow.ap_url, format!("https://{}/follows/{}", CONFIG.base_url, follow.id));
 
             let follow = Follow::insert(
                 &conn,

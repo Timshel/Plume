@@ -180,16 +180,10 @@ impl PlumeQuery {
 
         if self.before.is_some() || self.after.is_some() {
             // if at least one range bound is provided
-            let after = self.after.unwrap_or_else(|| {
-                i64::from(
-                    NaiveDate::from_ymd_opt(2000, 1, 1)
-                        .unwrap()
-                        .num_days_from_ce(),
-                )
-            });
-            let before = self
-                .before
-                .unwrap_or_else(|| i64::from(Utc::now().date_naive().num_days_from_ce()));
+            let after = self
+                .after
+                .unwrap_or_else(|| i64::from(NaiveDate::from_ymd_opt(2000, 1, 1).unwrap().num_days_from_ce()));
+            let before = self.before.unwrap_or_else(|| i64::from(Utc::now().date_naive().num_days_from_ce()));
 
             let field = Searcher::schema().get_field("creation_date").unwrap();
             let range = RangeQuery::new(
@@ -207,22 +201,15 @@ impl PlumeQuery {
 
     // documents newer than the provided date will be ignored
     pub fn before<D: Datelike>(&mut self, date: &D) -> &mut Self {
-        let before = self
-            .before
-            .unwrap_or_else(|| i64::from(Utc::now().date_naive().num_days_from_ce()));
+        let before = self.before.unwrap_or_else(|| i64::from(Utc::now().date_naive().num_days_from_ce()));
         self.before = Some(cmp::min(before, i64::from(date.num_days_from_ce())));
         self
     }
 
     // documents older than the provided date will be ignored
     pub fn after<D: Datelike>(&mut self, date: &D) -> &mut Self {
-        let after = self.after.unwrap_or_else(|| {
-            i64::from(
-                NaiveDate::from_ymd_opt(2000, 1, 1)
-                    .unwrap()
-                    .num_days_from_ce(),
-            )
-        });
+        let after =
+            self.after.unwrap_or_else(|| i64::from(NaiveDate::from_ymd_opt(2000, 1, 1).unwrap().num_days_from_ce()));
         self.after = Some(cmp::max(after, i64::from(date.num_days_from_ce())));
         self
     }
@@ -238,11 +225,7 @@ impl PlumeQuery {
             } else {
                 (query, "")
             }
-        } else if query
-            .get(0..2)
-            .map(|v| v == "+\"" || v == "-\"")
-            .unwrap_or(false)
-        {
+        } else if query.get(0..2).map(|v| v == "+\"" || v == "-\"").unwrap_or(false) {
             if let Some(index) = query[2..].find('"') {
                 query.split_at(index + 3)
             } else {
@@ -297,10 +280,8 @@ impl PlumeQuery {
         if token.contains('@') && (field_name == "author" || field_name == "blog") {
             let pos = token.find('@').unwrap();
             let user_term = Term::from_field_text(field, &token[..pos]);
-            let instance_term = Term::from_field_text(
-                Searcher::schema().get_field("instance").unwrap(),
-                &token[pos + 1..],
-            );
+            let instance_term =
+                Term::from_field_text(Searcher::schema().get_field("instance").unwrap(), &token[pos + 1..]);
             Box::new(BooleanQuery::from(vec![
                 (
                     Occur::Must,
@@ -313,10 +294,7 @@ impl PlumeQuery {
                         },
                     )) as Box<dyn Query + 'static>,
                 ),
-                (
-                    Occur::Must,
-                    Box::new(TermQuery::new(instance_term, IndexRecordOption::Basic)),
-                ),
+                (Occur::Must, Box::new(TermQuery::new(instance_term, IndexRecordOption::Basic))),
             ]))
         } else if token.contains(' ') {
             // phrase query
@@ -339,10 +317,7 @@ impl PlumeQuery {
                     ))
                 }
                 _ => Box::new(PhraseQuery::new(
-                    token
-                        .split_whitespace()
-                        .map(|token| Term::from_field_text(field, token))
-                        .collect(),
+                    token.split_whitespace().map(|token| Term::from_field_text(field, token)).collect(),
                 )),
             }
         } else {
@@ -377,7 +352,6 @@ impl std::str::FromStr for PlumeQuery {
 }
 
 impl ToString for PlumeQuery {
-
     #[allow(for_loops_over_fallibles)]
     fn to_string(&self) -> String {
         let mut result = String::new();

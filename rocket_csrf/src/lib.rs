@@ -227,7 +227,9 @@ impl Fairing {
     /// This function creates a new Fairing instance with the given configuration, allowing for
     /// customization of CSRF token management in a Rocket application.
     pub fn new(config: CsrfConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+        }
     }
 }
 
@@ -336,10 +338,7 @@ impl RocketFairing for Fairing {
             return;
         }
 
-        let values: Vec<u8> = rand::rng()
-            .sample_iter(StandardUniform)
-            .take(config.cookie_len)
-            .collect();
+        let values: Vec<u8> = rand::rng().sample_iter(StandardUniform).take(config.cookie_len).collect();
 
         let encoded = general_purpose::STANDARD.encode(&values[..]);
 

@@ -1,6 +1,5 @@
 use crate::{
-    ap_url, instance::Instance, safe_string::SafeString, schema::medias, users::User, Connection,
-    Error, Result, CONFIG,
+    ap_url, instance::Instance, safe_string::SafeString, schema::medias, users::User, Connection, Error, Result, CONFIG,
 };
 use activitystreams::{object::Image, prelude::*};
 use diesel::{self, ExpressionMethods, QueryDsl, RunQueryDsl};
@@ -81,11 +80,7 @@ impl Media {
         medias::table.load::<Media>(conn).map_err(Error::from)
     }
 
-    pub fn page_for_user(
-        conn: &mut Connection,
-        user: &User,
-        (min, max): (i32, i32),
-    ) -> Result<Vec<Media>> {
+    pub fn page_for_user(conn: &mut Connection, user: &User, (min, max): (i32, i32)) -> Result<Vec<Media>> {
         medias::table
             .filter(medias::owner_id.eq(user.id))
             .order(medias::id.desc())
@@ -96,21 +91,11 @@ impl Media {
     }
 
     pub fn count_for_user(conn: &mut Connection, user: &User) -> Result<i64> {
-        medias::table
-            .filter(medias::owner_id.eq(user.id))
-            .count()
-            .get_result(conn)
-            .map_err(Error::from)
+        medias::table.filter(medias::owner_id.eq(user.id)).count().get_result(conn).map_err(Error::from)
     }
 
     pub fn category(&self) -> MediaCategory {
-        match &*self
-            .file_path
-            .rsplit_once('.')
-            .map(|x| x.1)
-            .unwrap_or("")
-            .to_lowercase()
-        {
+        match &*self.file_path.rsplit_once('.').map(|x| x.1).unwrap_or("").to_lowercase() {
             "png" | "jpg" | "jpeg" | "gif" | "svg" => MediaCategory::Image,
             "mp3" | "wav" | "flac" => MediaCategory::Audio,
             "mp4" | "avi" | "webm" | "mov" => MediaCategory::Video,
@@ -137,18 +122,15 @@ impl Media {
                 url,
                 escape(&self.alt_text)
             )),
-            MediaCategory::Unknown => SafeString::trusted(&format!(
-                r#"<a href="{}" class="media-preview unknown"></a>"#,
-                url,
-            )),
+            MediaCategory::Unknown => {
+                SafeString::trusted(&format!(r#"<a href="{}" class="media-preview unknown"></a>"#, url,))
+            }
         })
     }
 
     pub fn markdown(&self) -> Result<SafeString> {
         Ok(match self.category() {
-            MediaCategory::Image => {
-                SafeString::new(&format!("![{}]({})", escape(&self.alt_text), self.id))
-            }
+            MediaCategory::Image => SafeString::new(&format!("![{}]({})", escape(&self.alt_text), self.id)),
             MediaCategory::Audio | MediaCategory::Video => self.html()?,
             MediaCategory::Unknown => SafeString::new(""),
         })
@@ -161,9 +143,9 @@ impl Media {
         }
 
         if CONFIG.s3.is_some() {
-            #[cfg(feature="s3")]
+            #[cfg(feature = "s3")]
             unreachable!("Called Media::local_path() but media are stored on S3");
-            #[cfg(not(feature="s3"))]
+            #[cfg(not(feature = "s3"))]
             unreachable!();
         }
 
@@ -184,14 +166,10 @@ impl Media {
             return None;
         }
 
-        let relative_path = self
-            .file_path
-            .trim_start_matches(&CONFIG.media_directory)
-            .replace(path::MAIN_SEPARATOR, "/");
+        let relative_path =
+            self.file_path.trim_start_matches(&CONFIG.media_directory).replace(path::MAIN_SEPARATOR, "/");
 
-        let relative_path = relative_path
-            .trim_start_matches('/')
-            .trim_start_matches("static/media/");
+        let relative_path = relative_path.trim_start_matches('/').trim_start_matches("static/media/");
 
         Some(format!("static/media/{}", relative_path))
     }
@@ -203,55 +181,57 @@ impl Media {
         } else {
             let relative_url = self.relative_url().unwrap_or_default();
 
-            #[cfg(feature="s3")]
+            #[cfg(feature = "s3")]
             if CONFIG.s3.as_ref().map(|x| x.direct_download).unwrap_or(false) {
                 let s3_url = match CONFIG.s3.as_ref().unwrap() {
-                    S3Config { alias: Some(alias), .. } => {
+                    S3Config {
+                        alias: Some(alias),
+                        ..
+                    } => {
                         format!("https://{}/{}", alias, relative_url)
                     }
-                    S3Config { path_style: true, hostname, bucket, .. } => {
-                        format!("https://{}/{}/{}",
-                            hostname,
-                            bucket,
-                            relative_url
-                        )
+                    S3Config {
+                        path_style: true,
+                        hostname,
+                        bucket,
+                        ..
+                    } => {
+                        format!("https://{}/{}/{}", hostname, bucket, relative_url)
                     }
-                    S3Config { path_style: false, hostname, bucket, .. } => {
-                        format!("https://{}.{}/{}",
-                            bucket,
-                            hostname,
-                            relative_url
-                        )
+                    S3Config {
+                        path_style: false,
+                        hostname,
+                        bucket,
+                        ..
+                    } => {
+                        format!("https://{}.{}/{}", bucket, hostname, relative_url)
                     }
                 };
                 return Ok(s3_url);
             }
 
-            Ok(ap_url(&format!(
-                "{}/{}",
-                Instance::get_local()?.public_domain,
-                relative_url
-            )))
+            Ok(ap_url(&format!("{}/{}", Instance::get_local()?.public_domain, relative_url)))
         }
     }
 
     pub fn delete(&self, conn: &mut Connection) -> Result<()> {
         if !self.is_remote {
             if CONFIG.s3.is_some() {
-                #[cfg(not(feature="s3"))]
+                #[cfg(not(feature = "s3"))]
                 unreachable!();
 
                 #[cfg(feature = "s3")]
-                CONFIG.s3.as_ref().unwrap().get_bucket()
+                CONFIG
+                    .s3
+                    .as_ref()
+                    .unwrap()
+                    .get_bucket()
                     .delete_object_blocking(&self.relative_url().ok_or(Error::NotFound)?)?;
             } else {
                 fs::remove_file(self.local_path().ok_or(Error::NotFound)?)?;
             }
         }
-        diesel::delete(self)
-            .execute(conn)
-            .map(|_| ())
-            .map_err(Error::from)
+        diesel::delete(self).execute(conn).map(|_| ()).map_err(Error::from)
     }
 
     pub fn save_remote(conn: &mut Connection, url: String, user: &User) -> Result<Media> {
@@ -274,22 +254,15 @@ impl Media {
     }
 
     pub fn set_owner(&self, conn: &mut Connection, user: &User) -> Result<()> {
-        diesel::update(self)
-            .set(medias::owner_id.eq(user.id))
-            .execute(conn)
-            .map(|_| ())
-            .map_err(Error::from)
+        diesel::update(self).set(medias::owner_id.eq(user.id)).execute(conn).map(|_| ()).map_err(Error::from)
     }
 
     // TODO: merge with save_remote?
     pub async fn from_activity(conn: &mut Connection, image: &Image) -> Result<Media> {
-        let remote_url = image
-            .url()
-            .and_then(|url| url.to_as_uri())
-            .ok_or(Error::MissingApProperty)?;
+        let remote_url = image.url().and_then(|url| url.to_as_uri()).ok_or(Error::MissingApProperty)?;
 
         let file_path = if CONFIG.s3.is_some() {
-            #[cfg(not(feature="s3"))]
+            #[cfg(not(feature = "s3"))]
             unreachable!();
 
             #[cfg(feature = "s3")]
@@ -298,11 +271,7 @@ impl Media {
 
                 let dest = determine_mirror_s3_path(&remote_url);
 
-                let media = request::get(
-                    remote_url.as_str(),
-                    User::get_sender(),
-                    CONFIG.proxy().cloned(),
-                )?;
+                let media = request::get(remote_url.as_str(), User::get_sender(), CONFIG.proxy().cloned())?;
 
                 let content_type = media
                     .headers()
@@ -314,11 +283,7 @@ impl Media {
                 let bytes = media.bytes()?;
 
                 let bucket = CONFIG.s3.as_ref().unwrap().get_bucket();
-                bucket.put_object_with_content_type_blocking(
-                    &dest,
-                    &bytes,
-                    &content_type.to_string()
-                )?;
+                bucket.put_object_with_content_type_blocking(&dest, &bytes, &content_type.to_string())?;
 
                 dest
             }
@@ -331,12 +296,7 @@ impl Media {
 
             let mut dest = fs::File::create(path.clone())?;
             // TODO: conditional GET
-            request::get(
-                remote_url.as_str(),
-                User::get_sender(),
-                CONFIG.proxy().cloned(),
-            )?
-            .copy_to(&mut dest)?;
+            request::get(remote_url.as_str(), User::get_sender(), CONFIG.proxy().cloned())?.copy_to(&mut dest)?;
             path.to_str().ok_or(Error::InvalidValue)?.to_string()
         };
 
@@ -344,10 +304,7 @@ impl Media {
             Ok(mut media) => {
                 let mut updated = false;
 
-                let alt_text = image
-                    .content()
-                    .and_then(|content| content.to_as_string())
-                    .ok_or(Error::NotFound)?;
+                let alt_text = image.content().and_then(|content| content.to_as_string()).ok_or(Error::NotFound)?;
                 let summary = image.summary().and_then(|summary| summary.to_as_string());
                 let sensitive = summary.is_some();
                 let content_warning = summary;
@@ -375,30 +332,27 @@ impl Media {
                     diesel::update(&media).set(&media).execute(conn)?;
                 }
                 Ok(media)
-            },
+            }
             Err(_) => {
                 let summary = image.summary().and_then(|summary| summary.to_as_string());
                 let owner_id = User::from_id(
-                        conn,
-                        &image
-                            .attributed_to()
-                            .and_then(|attributed_to| attributed_to.to_as_uri())
-                            .ok_or(Error::MissingApProperty)?,
-                        None,
-                        CONFIG.proxy(),
-                    )
-                    .await
-                    .map_err(|(_, e)| e)?
-                    .id;
+                    conn,
+                    &image
+                        .attributed_to()
+                        .and_then(|attributed_to| attributed_to.to_as_uri())
+                        .ok_or(Error::MissingApProperty)?,
+                    None,
+                    CONFIG.proxy(),
+                )
+                .await
+                .map_err(|(_, e)| e)?
+                .id;
 
                 Media::insert(
                     conn,
                     NewMedia {
                         file_path,
-                        alt_text: image
-                            .content()
-                            .and_then(|content| content.to_as_string())
-                            .ok_or(Error::NotFound)?,
+                        alt_text: image.content().and_then(|content| content.to_as_string()).ok_or(Error::NotFound)?,
                         is_remote: false,
                         remote_url: None,
                         sensitive: summary.is_some(),
@@ -443,22 +397,19 @@ fn determine_mirror_file_path(url: &str) -> PathBuf {
             } else {
                 warn!("Error without a host: {}", &url);
             }
-            let ext = url
-                .rsplit('.')
-                .next()
-                .map(ToOwned::to_owned)
-                .unwrap_or_else(|| String::from("png"));
+            let ext = url.rsplit('.').next().map(ToOwned::to_owned).unwrap_or_else(|| String::from("png"));
             file_path.push(format!("{}.{}", GUID::rand(), ext));
         }
     }
     file_path
 }
 
-#[cfg(feature="s3")]
+#[cfg(feature = "s3")]
 fn determine_mirror_s3_path(url: &str) -> String {
     match Url::parse(url) {
         Ok(url) if url.has_host() => {
-            format!("static/media/{}/{}/{}",
+            format!(
+                "static/media/{}/{}/{}",
                 REMOTE_MEDIA_DIRECTORY,
                 url.host_str().unwrap(),
                 url.path().trim_start_matches('/'),
@@ -470,16 +421,8 @@ fn determine_mirror_s3_path(url: &str) -> String {
             } else {
                 warn!("Error without a host: {}", &url);
             }
-            let ext = url
-                .rsplit('.')
-                .next()
-                .map(ToOwned::to_owned)
-                .unwrap_or_else(|| String::from("png"));
-            format!("static/media/{}/{}.{}",
-                REMOTE_MEDIA_DIRECTORY,
-                GUID::rand(),
-                ext,
-            )
+            let ext = url.rsplit('.').next().map(ToOwned::to_owned).unwrap_or_else(|| String::from("png"));
+            format!("static/media/{}/{}.{}", REMOTE_MEDIA_DIRECTORY, GUID::rand(), ext,)
         }
     }
 }
@@ -618,23 +561,11 @@ pub(crate) mod tests {
             )
             .unwrap();
 
-            assert!(Media::for_user(conn, u1.id)
-                .unwrap()
-                .iter()
-                .any(|m| m.id == media.id));
-            assert!(!Media::for_user(conn, u2.id)
-                .unwrap()
-                .iter()
-                .any(|m| m.id == media.id));
+            assert!(Media::for_user(conn, u1.id).unwrap().iter().any(|m| m.id == media.id));
+            assert!(!Media::for_user(conn, u2.id).unwrap().iter().any(|m| m.id == media.id));
             media.set_owner(conn, u2).unwrap();
-            assert!(!Media::for_user(conn, u1.id)
-                .unwrap()
-                .iter()
-                .any(|m| m.id == media.id));
-            assert!(Media::for_user(conn, u2.id)
-                .unwrap()
-                .iter()
-                .any(|m| m.id == media.id));
+            assert!(!Media::for_user(conn, u1.id).unwrap().iter().any(|m| m.id == media.id));
+            assert!(Media::for_user(conn, u2.id).unwrap().iter().any(|m| m.id == media.id));
 
             clean(conn);
             Ok(())

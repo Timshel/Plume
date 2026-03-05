@@ -33,14 +33,12 @@ mod module {
 
             guard_intl.and_then(|intl| {
                 guard_worker.and_then(|worker| {
-                    guard_searcher.map(|searcher| {
-                        PlumeRocket {
-                            intl,
-                            user,
-                            flash_msg: flash_msg.map(|f| (f.kind().into(), f.message().into())),
-                            worker: (*worker).clone(),
-                            searcher: (*searcher).clone(),
-                        }
+                    guard_searcher.map(|searcher| PlumeRocket {
+                        intl,
+                        user,
+                        flash_msg: flash_msg.map(|f| (f.kind().into(), f.message().into())),
+                        worker: (*worker).clone(),
+                        searcher: (*searcher).clone(),
                     })
                 })
             })

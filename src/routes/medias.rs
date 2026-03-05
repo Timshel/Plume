@@ -10,21 +10,11 @@ use rocket::{
 use rocket_i18n::I18n;
 
 #[get("/medias?<page>")]
-pub fn list(
-    user: User,
-    page: Option<Page>,
-    mut conn: DbConn,
-    rockets: PlumeRocket,
-) -> Result<Ructe, ErrorPage> {
+pub fn list(user: User, page: Option<Page>, mut conn: DbConn, rockets: PlumeRocket) -> Result<Ructe, ErrorPage> {
     let page = page.unwrap_or_default();
     let medias = Media::page_for_user(&mut conn, &user, page.limits())?;
     let total_page = Page::total(Media::count_for_user(&mut conn, &user)? as i32);
-    Ok(render!(medias::index_html(
-        &(&mut conn, &rockets).to_context(),
-        medias,
-        page.0,
-        total_page
-    )))
+    Ok(render!(medias::index_html(&(&mut conn, &rockets).to_context(), medias, page.0, total_page)))
 }
 
 #[get("/medias/new")]
@@ -69,16 +59,13 @@ pub async fn upload(
 
 async fn save_uploaded_file<'r>(file: &mut TempFile<'r>) -> Result<Option<String>, plume_models::Error> {
     // Remove extension if it contains something else than just letters and numbers
-    let ext = file
-        .content_type()
-        .map(|ct| ct.to_string().replace("/", "."))
-        .unwrap_or_default();
+    let ext = file.content_type().map(|ct| ct.to_string().replace("/", ".")).unwrap_or_default();
 
     if CONFIG.s3.is_some() {
-        #[cfg(not(feature="s3"))]
+        #[cfg(not(feature = "s3"))]
         unreachable!();
 
-        #[cfg(feature="s3")]
+        #[cfg(feature = "s3")]
         {
             use std::borrow::Cow;
 
@@ -108,18 +95,10 @@ async fn save_uploaded_file<'r>(file: &mut TempFile<'r>) -> Result<Option<String
 }
 
 #[get("/medias/<id>")]
-pub fn details(
-    id: i32,
-    user: User,
-    mut conn: DbConn,
-    rockets: PlumeRocket,
-) -> Result<Ructe, ErrorPage> {
+pub fn details(id: i32, user: User, mut conn: DbConn, rockets: PlumeRocket) -> Result<Ructe, ErrorPage> {
     let media = Media::get(&mut conn, id)?;
     if media.owner_id == user.id {
-        Ok(render!(medias::details_html(
-            &(&mut conn, &rockets).to_context(),
-            media
-        )))
+        Ok(render!(medias::details_html(&(&mut conn, &rockets).to_context(), media)))
     } else {
         Err(Error::Unauthorized.into())
     }
@@ -130,10 +109,7 @@ pub fn delete(id: i32, user: User, mut conn: DbConn, intl: I18n) -> Result<Flash
     let media = Media::get(&mut conn, id)?;
     if media.owner_id == user.id {
         media.delete(&mut conn)?;
-        Ok(Flash::success(
-            Redirect::to(uri!(list(page = _))),
-            i18n!(intl.catalog, "Your media have been deleted."),
-        ))
+        Ok(Flash::success(Redirect::to(uri!(list(page = _))), i18n!(intl.catalog, "Your media have been deleted.")))
     } else {
         Ok(Flash::error(
             Redirect::to(uri!(list(page = _))),
@@ -143,19 +119,11 @@ pub fn delete(id: i32, user: User, mut conn: DbConn, intl: I18n) -> Result<Flash
 }
 
 #[post("/medias/<id>/avatar")]
-pub fn set_avatar(
-    id: i32,
-    user: User,
-    mut conn: DbConn,
-    intl: I18n,
-) -> Result<Flash<Redirect>, ErrorPage> {
+pub fn set_avatar(id: i32, user: User, mut conn: DbConn, intl: I18n) -> Result<Flash<Redirect>, ErrorPage> {
     let media = Media::get(&mut conn, id)?;
     if media.owner_id == user.id {
         user.set_avatar(&mut conn, media.id)?;
-        Ok(Flash::success(
-            Redirect::to(uri!(details(id = id))),
-            i18n!(intl.catalog, "Your avatar has been updated."),
-        ))
+        Ok(Flash::success(Redirect::to(uri!(details(id = id))), i18n!(intl.catalog, "Your avatar has been updated.")))
     } else {
         Ok(Flash::error(
             Redirect::to(uri!(details(id = id))),

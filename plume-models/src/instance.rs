@@ -55,18 +55,11 @@ impl Instance {
     }
 
     pub fn get_local() -> Result<Instance> {
-        LOCAL_INSTANCE
-            .read()
-            .unwrap()
-            .clone()
-            .ok_or(Error::NotFound)
+        LOCAL_INSTANCE.read().unwrap().clone().ok_or(Error::NotFound)
     }
 
     pub fn get_local_uncached(conn: &mut Connection) -> Result<Instance> {
-        instances::table
-            .filter(instances::local.eq(true))
-            .first(conn)
-            .map_err(Error::from)
+        instances::table.filter(instances::local.eq(true)).first(conn).map_err(Error::from)
     }
 
     pub fn cache_local(conn: &mut Connection) {
@@ -74,10 +67,7 @@ impl Instance {
     }
 
     pub fn get_remotes(conn: &mut Connection) -> Result<Vec<Instance>> {
-        instances::table
-            .filter(instances::local.eq(false))
-            .load::<Instance>(conn)
-            .map_err(Error::from)
+        instances::table.filter(instances::local.eq(false)).load::<Instance>(conn).map_err(Error::from)
     }
 
     pub fn create_local_instance_user(conn: &mut Connection) -> Result<User> {
@@ -99,13 +89,10 @@ impl Instance {
     }
 
     pub fn get_local_instance_user_uncached(conn: &mut Connection) -> Result<User> {
-        users::table
-            .filter(users::role.eq(3))
-            .first(conn)
-            .or_else(|err| match err {
-                NotFound => Self::create_local_instance_user(conn),
-                _ => Err(Error::Db(err)),
-            })
+        users::table.filter(users::role.eq(3)).first(conn).or_else(|err| match err {
+            NotFound => Self::create_local_instance_user(conn),
+            _ => Err(Error::Db(err)),
+        })
     }
 
     pub fn cache_local_instance_user(conn: &mut Connection) {
@@ -130,19 +117,12 @@ impl Instance {
     find_by!(instances, find_by_domain, public_domain as &str);
 
     pub fn toggle_block(&self, conn: &mut Connection) -> Result<()> {
-        diesel::update(self)
-            .set(instances::blocked.eq(!self.blocked))
-            .execute(conn)
-            .map(|_| ())
-            .map_err(Error::from)
+        diesel::update(self).set(instances::blocked.eq(!self.blocked)).execute(conn).map(|_| ()).map_err(Error::from)
     }
 
     /// id: AP object id
     pub fn is_blocked(conn: &mut Connection, id: &str) -> Result<bool> {
-        for block in instances::table
-            .filter(instances::blocked.eq(true))
-            .get_results::<Instance>(conn)?
-        {
+        for block in instances::table.filter(instances::blocked.eq(true)).get_results::<Instance>(conn)? {
             if id.starts_with(&format!("https://{}/", block.public_domain)) {
                 return Ok(true);
             }
@@ -219,10 +199,7 @@ impl Instance {
     }
 
     pub fn count(conn: &mut Connection) -> Result<i64> {
-        instances::table
-            .count()
-            .get_result(conn)
-            .map_err(Error::from)
+        instances::table.count().get_result(conn).map_err(Error::from)
     }
 
     /// Returns a list of the local instance themes (all files matching `static/css/NAME/theme.css`)
@@ -240,10 +217,7 @@ impl Instance {
                     .filter(|f| f.file_type().map(|t| t.is_dir()).unwrap_or(false))
                     // Only keep the directory name (= theme name)
                     .filter_map(|f| {
-                        f.path()
-                            .file_name()
-                            .and_then(std::ffi::OsStr::to_str)
-                            .map(std::borrow::ToOwned::to_owned)
+                        f.path().file_name().and_then(std::ffi::OsStr::to_str).map(std::borrow::ToOwned::to_owned)
                     })
                     // Ignore the one starting with "blog-": these are the blog themes
                     .filter(|f| !f.starts_with("blog-"))
@@ -267,10 +241,7 @@ impl Instance {
                     .filter(|f| f.file_type().map(|t| t.is_dir()).unwrap_or(false))
                     // Only keep the directory name (= theme name)
                     .filter_map(|f| {
-                        f.path()
-                            .file_name()
-                            .and_then(std::ffi::OsStr::to_str)
-                            .map(std::borrow::ToOwned::to_owned)
+                        f.path().file_name().and_then(std::ffi::OsStr::to_str).map(std::borrow::ToOwned::to_owned)
                     })
                     // Only keep the one starting with "blog-": these are the blog themes
                     .filter(|f| f.starts_with("blog-"))
@@ -352,34 +323,17 @@ pub(crate) mod tests {
     fn local_instance() {
         let conn = &db();
         conn.test_transaction::<_, (), _>(|| {
-            let inserted = fill_database(conn)
-                .into_iter()
-                .map(|(inserted, _)| inserted)
-                .find(|inst| inst.local)
-                .unwrap();
+            let inserted =
+                fill_database(conn).into_iter().map(|(inserted, _)| inserted).find(|inst| inst.local).unwrap();
             let res = Instance::get_local().unwrap();
 
             part_eq!(
                 res,
                 inserted,
-                [
-                    default_license,
-                    local,
-                    long_description,
-                    short_description,
-                    name,
-                    open_registrations,
-                    public_domain
-                ]
+                [default_license, local, long_description, short_description, name, open_registrations, public_domain]
             );
-            assert_eq!(
-                res.long_description_html.get(),
-                &inserted.long_description_html
-            );
-            assert_eq!(
-                res.short_description_html.get(),
-                &inserted.short_description_html
-            );
+            assert_eq!(res.long_description_html.get(), &inserted.long_description_html);
+            assert_eq!(res.short_description_html.get(), &inserted.short_description_html);
             Ok(())
         });
     }
@@ -392,10 +346,7 @@ pub(crate) mod tests {
             assert_eq!(Instance::count(conn).unwrap(), inserted.len() as i64);
 
             let res = Instance::get_remotes(conn).unwrap();
-            assert_eq!(
-                res.len(),
-                inserted.iter().filter(|(inst, _)| !inst.local).count()
-            );
+            assert_eq!(res.len(), inserted.iter().filter(|(inst, _)| !inst.local).count());
 
             inserted
                 .iter()
@@ -415,14 +366,8 @@ pub(crate) mod tests {
                             public_domain
                         ]
                     );
-                    assert_eq!(
-                        &newinst.long_description_html,
-                        inst.long_description_html.get()
-                    );
-                    assert_eq!(
-                        &newinst.short_description_html,
-                        inst.short_description_html.get()
-                    );
+                    assert_eq!(&newinst.long_description_html, inst.long_description_html.get());
+                    assert_eq!(&newinst.short_description_html, inst.short_description_html.get());
                 });
 
             let page = Instance::page(conn, (0, 2)).unwrap();
@@ -431,9 +376,7 @@ pub(crate) mod tests {
             let page2 = &page[1];
             assert!(page1.public_domain <= page2.public_domain);
 
-            let mut last_domaine: String = Instance::page(conn, (0, 1)).unwrap()[0]
-                .public_domain
-                .clone();
+            let mut last_domaine: String = Instance::page(conn, (0, 1)).unwrap()[0].public_domain.clone();
             for i in 1..inserted.len() as i32 {
                 let page = Instance::page(conn, (i, i + 1)).unwrap();
                 assert_eq!(page.len(), 1);
@@ -459,20 +402,16 @@ pub(crate) mod tests {
             assert_eq!(
                 inst_list
                     .iter()
-                    .filter(
-                        |(_, inst)| inst.blocked != Instance::get(conn, inst.id).unwrap().blocked
-                    )
+                    .filter(|(_, inst)| inst.blocked != Instance::get(conn, inst.id).unwrap().blocked)
                     .count(),
                 0
             );
             assert_eq!(
-                Instance::is_blocked(conn, &format!("https://{}/something", inst.public_domain))
-                    .unwrap(),
+                Instance::is_blocked(conn, &format!("https://{}/something", inst.public_domain)).unwrap(),
                 inst.blocked
             );
             assert_eq!(
-                Instance::is_blocked(conn, &format!("https://{}a/something", inst.public_domain))
-                    .unwrap(),
+                Instance::is_blocked(conn, &format!("https://{}a/something", inst.public_domain)).unwrap(),
                 Instance::find_by_domain(conn, &format!("{}a", inst.public_domain))
                     .map(|inst| inst.blocked)
                     .unwrap_or(false)
@@ -482,13 +421,11 @@ pub(crate) mod tests {
             let inst = Instance::get(conn, inst.id).unwrap();
             assert_eq!(inst.blocked, blocked);
             assert_eq!(
-                Instance::is_blocked(conn, &format!("https://{}/something", inst.public_domain))
-                    .unwrap(),
+                Instance::is_blocked(conn, &format!("https://{}/something", inst.public_domain)).unwrap(),
                 inst.blocked
             );
             assert_eq!(
-                Instance::is_blocked(conn, &format!("https://{}a/something", inst.public_domain))
-                    .unwrap(),
+                Instance::is_blocked(conn, &format!("https://{}a/something", inst.public_domain)).unwrap(),
                 Instance::find_by_domain(conn, &format!("{}a", inst.public_domain))
                     .map(|inst| inst.blocked)
                     .unwrap_or(false)
@@ -496,9 +433,7 @@ pub(crate) mod tests {
             assert_eq!(
                 inst_list
                     .iter()
-                    .filter(
-                        |(_, inst)| inst.blocked != Instance::get(conn, inst.id).unwrap().blocked
-                    )
+                    .filter(|(_, inst)| inst.blocked != Instance::get(conn, inst.id).unwrap().blocked)
                     .count(),
                 0
             );
@@ -524,15 +459,10 @@ pub(crate) mod tests {
             let inst = Instance::get(conn, inst.id).unwrap();
             assert_eq!(inst.name, "NewName".to_owned());
             assert!(!inst.open_registrations);
-            assert_eq!(
-                inst.long_description.get(),
-                "[long_description](/with_link)"
-            );
+            assert_eq!(inst.long_description.get(), "[long_description](/with_link)");
             assert_eq!(
                 inst.long_description_html,
-                SafeString::new(
-                    "<p dir=\"auto\"><a href=\"/with_link\">long_description</a></p>\n"
-                )
+                SafeString::new("<p dir=\"auto\"><a href=\"/with_link\">long_description</a></p>\n")
             );
             assert_eq!(inst.short_description.get(), "[short](#link)");
             assert_eq!(

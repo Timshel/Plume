@@ -9,12 +9,8 @@ pub fn gen_keypair() -> (Vec<u8>, Vec<u8>) {
     let keypair = Rsa::generate(2048).expect("sign::gen_keypair: key generation error");
     let keypair = PKey::from_rsa(keypair).expect("sign::gen_keypair: parsing error");
     (
-        keypair
-            .public_key_to_pem()
-            .expect("sign::gen_keypair: public key encoding error"),
-        keypair
-            .private_key_to_pem_pkcs8()
-            .expect("sign::gen_keypair: private key encoding error"),
+        keypair.public_key_to_pem().expect("sign::gen_keypair: public key encoding error"),
+        keypair.private_key_to_pem_pkcs8().expect("sign::gen_keypair: private key encoding error"),
     )
 }
 
@@ -78,15 +74,13 @@ impl Signable for serde_json::Value {
     }
 
     fn verify<T: Signer>(mut self, creator: &T) -> bool {
-        let signature_obj =
-            if let Some(sig) = self.as_object_mut().and_then(|o| o.remove("signature")) {
-                sig
-            } else {
-                //signature not present
-                return false;
-            };
-        let signature = if let Ok(sig) =
-            BASE64_STANDARD.decode(&signature_obj["signatureValue"].as_str().unwrap_or(""))
+        let signature_obj = if let Some(sig) = self.as_object_mut().and_then(|o| o.remove("signature")) {
+            sig
+        } else {
+            //signature not present
+            return false;
+        };
+        let signature = if let Ok(sig) = BASE64_STANDARD.decode(&signature_obj["signatureValue"].as_str().unwrap_or(""))
         {
             sig
         } else {
@@ -164,10 +158,7 @@ pub fn verify_http_headers<S: Signer + ::std::fmt::Debug>(
         //missing part of the header
         return SignatureValidity::Invalid;
     }
-    let headers = headers
-        .expect("sign::verify_http_headers: unreachable")
-        .split_whitespace()
-        .collect::<Vec<_>>();
+    let headers = headers.expect("sign::verify_http_headers: unreachable").split_whitespace().collect::<Vec<_>>();
     let signature = signature.expect("sign::verify_http_headers: unreachable");
     let h = headers
         .iter()
@@ -176,10 +167,7 @@ pub fn verify_http_headers<S: Signer + ::std::fmt::Debug>(
         .collect::<Vec<_>>()
         .join("\n");
 
-    if !sender
-        .verify(&h, &BASE64_STANDARD.decode(signature).unwrap_or_default())
-        .unwrap_or(false)
-    {
+    if !sender.verify(&h, &BASE64_STANDARD.decode(signature).unwrap_or_default()).unwrap_or(false) {
         return SignatureValidity::Invalid;
     }
     if !headers.contains(&"digest") {

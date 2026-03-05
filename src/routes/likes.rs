@@ -5,8 +5,8 @@ use crate::routes::errors::ErrorPage;
 use crate::utils::requires_login;
 use plume_common::activity_pub::broadcast;
 use plume_models::{
-    blogs::Blog, db_conn::DbConn, inbox::inbox, likes, posts::Post, timeline::*, users::User,
-    Error, PlumeRocket, CONFIG,
+    blogs::Blog, db_conn::DbConn, inbox::inbox, likes, posts::Post, timeline::*, users::User, Error, PlumeRocket,
+    CONFIG,
 };
 
 #[post("/~/<blog>/<slug>/like")]
@@ -28,28 +28,17 @@ pub async fn create(
 
         let dest = User::one_by_instance(&mut conn)?;
         let act = like.to_activity(&mut conn)?;
-        rockets
-            .worker
-            .execute(move || broadcast(&user, act, dest, CONFIG.proxy().cloned()));
+        rockets.worker.execute(move || broadcast(&user, act, dest, CONFIG.proxy().cloned()));
     } else {
         let like = likes::Like::find_by_user_on_post(&mut conn, user.id, post.id)?;
         let delete_act = like.build_undo(&mut conn)?;
-        inbox(
-            &mut conn,
-            serde_json::to_value(&delete_act).map_err(Error::from)?,
-        ).await?;
+        inbox(&mut conn, serde_json::to_value(&delete_act).map_err(Error::from)?).await?;
 
         let dest = User::one_by_instance(&mut conn)?;
-        rockets
-            .worker
-            .execute(move || broadcast(&user, delete_act, dest, CONFIG.proxy().cloned()));
+        rockets.worker.execute(move || broadcast(&user, delete_act, dest, CONFIG.proxy().cloned()));
     }
 
-    Ok(Redirect::to(uri!(
-        super::posts::details(blog = blog,
-        slug = slug,
-        responding_to = _
-    ))))
+    Ok(Redirect::to(uri!(super::posts::details(blog = blog, slug = slug, responding_to = _))))
 }
 
 #[post("/~/<blog>/<slug>/like", rank = 2)]

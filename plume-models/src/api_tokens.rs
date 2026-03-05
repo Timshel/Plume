@@ -89,19 +89,14 @@ impl<'r> FromRequest<'r> for ApiToken {
         match (parsed_header.next(), parsed_header.next()) {
             (None, _) => Outcome::Error((Status::BadRequest, TokenError::NoType)),
             (_, None) => Outcome::Error((Status::BadRequest, TokenError::NoValue)),
-            (Some("Bearer"), Some(val)) => {
-                match request.guard::<DbConn>().await {
-                    Outcome::Success(mut conn) => {
-                        match ApiToken::find_by_value(&mut conn, val) {
-                            Ok(token) => Outcome::Success(token),
-                            _ => Outcome::Forward(Status::Unauthorized),
-                        }
-                    }
-                    _ => Outcome::Error((Status::InternalServerError, TokenError::DbError))
-                }
-
+            (Some("Bearer"), Some(val)) => match request.guard::<DbConn>().await {
+                Outcome::Success(mut conn) => match ApiToken::find_by_value(&mut conn, val) {
+                    Ok(token) => Outcome::Success(token),
+                    _ => Outcome::Forward(Status::Unauthorized),
+                },
+                _ => Outcome::Error((Status::InternalServerError, TokenError::DbError)),
             },
-            _ => Outcome::Forward(Status::Unauthorized)
+            _ => Outcome::Forward(Status::Unauthorized),
         }
     }
 }

@@ -1,6 +1,6 @@
-use chrono::offset::Utc;
 use crate::routes::Page;
 use crate::template_utils::{IntoContext, PostCard, Ructe};
+use chrono::offset::Utc;
 use plume_models::{db_conn::DbConn, search::Query, PlumeRocket};
 use rocket::http::uri::fmt::{Ignorable, Query as RocketQuery};
 use std::str::FromStr;
@@ -22,7 +22,7 @@ pub struct SearchQuery {
     page: Option<Page>,
 }
 
-impl Ignorable<RocketQuery> for SearchQuery { }
+impl Ignorable<RocketQuery> for SearchQuery {}
 
 macro_rules! param_to_query {
     ( $query:ident, $parsed_query:ident; normal: $($field:ident),*; date: $($date:ident),*) => {
@@ -53,8 +53,7 @@ macro_rules! param_to_query {
 #[get("/search?<query..>")]
 pub fn search(query: SearchQuery, mut conn: DbConn, rockets: PlumeRocket) -> Ructe {
     let page = query.page.unwrap_or_default();
-    let mut parsed_query =
-        Query::from_str(query.q.as_deref().unwrap_or_default()).unwrap_or_default();
+    let mut parsed_query = Query::from_str(query.q.as_deref().unwrap_or_default()).unwrap_or_default();
 
     param_to_query!(query, parsed_query; normal: title, subtitle, content, tag,
               instance, author, blog, lang, license;
@@ -68,19 +67,15 @@ pub fn search(query: SearchQuery, mut conn: DbConn, rockets: PlumeRocket) -> Ruc
             &format!("{}", Utc::now().date_naive().format("%Y-%m-d"))
         ))
     } else {
-        let docs = rockets
-            .searcher
-            .search_document(&mut conn, parsed_query, page.limits());
-        let next_page = if docs.is_empty() { 0 } else { page.0 + 1 };
+        let docs = rockets.searcher.search_document(&mut conn, parsed_query, page.limits());
+        let next_page = if docs.is_empty() {
+            0
+        } else {
+            page.0 + 1
+        };
 
         let pc = PostCard::from_posts(&mut conn, docs, &rockets.user);
 
-        render!(search::result_html(
-            &(&mut conn, &rockets).to_context(),
-            &str_query,
-            pc,
-            page.0,
-            next_page
-        ))
+        render!(search::result_html(&(&mut conn, &rockets).to_context(), &str_query, pc, page.0, next_page))
     }
 }

@@ -24,8 +24,8 @@ use std::time::Duration;
 use tracing::warn;
 
 init_i18n!(
-    "plume", af, ar, bg, ca, cs, cy, da, de, el, en, eo, es, eu, fa, fi, fr, gl, he, hi, hr, hu,
-    it, ja, ko, nb, nl, no, pl, pt, ro, ru, sat, si, sk, sl, sr, sv, tr, uk, vi, zh
+    "plume", af, ar, bg, ca, cs, cy, da, de, el, en, eo, es, eu, fa, fi, fr, gl, he, hi, hr, hu, it, ja, ko, nb, nl,
+    no, pl, pt, ro, ru, sat, si, sk, sl, sr, sv, tr, uk, vi, zh
 );
 
 mod api;
@@ -47,9 +47,7 @@ compile_i18n!();
 /// Initializes a database pool.
 fn init_pool() -> Option<DbPool> {
     let manager = ConnectionManager::<Connection>::new(CONFIG.database_url.as_str());
-    let mut builder = DbPool::builder()
-        .connection_customizer(Box::new(PragmaForeignKey))
-        .min_idle(CONFIG.db_min_idle);
+    let mut builder = DbPool::builder().connection_customizer(Box::new(PragmaForeignKey)).min_idle(CONFIG.db_min_idle);
     if let Some(max_size) = CONFIG.db_max_size {
         builder = builder.max_size(max_size);
     };
@@ -89,18 +87,11 @@ and https://docs.joinplu.me/installation/init for more info.
 
     let workpool = ScheduledThreadPool::builder().num_threads(num_cpus::get()).thread_name_pattern("worker {}").build();
     // we want a fast exit here, so
-    let searcher = Arc::new(UnmanagedSearcher::open_or_recreate(
-        &CONFIG.search_index,
-        &CONFIG.search_tokenizers,
-    ));
+    let searcher = Arc::new(UnmanagedSearcher::open_or_recreate(&CONFIG.search_index, &CONFIG.search_tokenizers));
     RemoteFetchActor::init(dbpool.clone());
     SearchActor::init(searcher.clone(), dbpool.clone());
     let commiter = searcher.clone();
-    workpool.execute_with_fixed_delay(
-        Duration::from_secs(5),
-        Duration::from_secs(60 * 30),
-        move || commiter.commit(),
-    );
+    workpool.execute_with_fixed_delay(Duration::from_secs(5), Duration::from_secs(60 * 30), move || commiter.commit());
 
     let search_unlocker = searcher.clone();
     ctrlc::set_handler(move || {
@@ -235,11 +226,10 @@ and https://docs.joinplu.me/installation/init for more info.
                 api::posts::delete,
             ],
         )
-        .register("/", catchers![
-            routes::errors::not_found,
-            routes::errors::unprocessable_entity,
-            routes::errors::server_error
-        ])
+        .register(
+            "/",
+            catchers![routes::errors::not_found, routes::errors::unprocessable_entity, routes::errors::server_error],
+        )
         .manage(Arc::new(Mutex::new(mail)))
         .manage::<Arc<Mutex<Vec<routes::session::ResetRequest>>>>(Arc::new(Mutex::new(vec![])))
         .manage(dbpool)
@@ -247,26 +237,26 @@ and https://docs.joinplu.me/installation/init for more info.
         .manage(searcher)
         .manage(include_i18n!())
         .attach(Fairing::default())
-/*
-        .attach(
-            CsrfFairingBuilder::new()
-                .set_default_target(
-                    "/csrf-violation?target=<uri>".to_owned(),
-                    rocket::http::Method::Post,
-                )
-                .add_exceptions(vec![
-                    ("/inbox".to_owned(), "/inbox".to_owned(), None),
-                    (
-                        "/@/<name>/inbox".to_owned(),
-                        "/@/<name>/inbox".to_owned(),
-                        None,
-                    ),
-                    ("/api/<path..>".to_owned(), "/api/<path..>".to_owned(), None),
-                ])
-                .finalize()
-                .expect("main: csrf fairing creation error"),
-        )
-*/
+    /*
+            .attach(
+                CsrfFairingBuilder::new()
+                    .set_default_target(
+                        "/csrf-violation?target=<uri>".to_owned(),
+                        rocket::http::Method::Post,
+                    )
+                    .add_exceptions(vec![
+                        ("/inbox".to_owned(), "/inbox".to_owned(), None),
+                        (
+                            "/@/<name>/inbox".to_owned(),
+                            "/@/<name>/inbox".to_owned(),
+                            None,
+                        ),
+                        ("/api/<path..>".to_owned(), "/api/<path..>".to_owned(), None),
+                    ])
+                    .finalize()
+                    .expect("main: csrf fairing creation error"),
+            )
+    */
 }
 
 #[rocket::main]
@@ -276,5 +266,5 @@ async fn main() -> Result<(), rocket::Error> {
     #[cfg(feature = "test")]
     let rocket = rocket.mount("/test", routes![test_routes::health,]);
 
-    rocket.launch().await.map(|_|())
+    rocket.launch().await.map(|_| ())
 }

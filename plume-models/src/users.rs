@@ -1,8 +1,8 @@
 use crate::{
-    ap_url, blocklisted_emails::BlocklistedEmail, blogs::Blog, comments::Comment, db_conn::DbConn,
-    follows::Follow, instance::*, medias::Media, notifications::Notification,
-    post_authors::PostAuthor, posts::Post, safe_string::SafeString, schema::users,
-    timeline::Timeline, Connection, Error, Result, UserEvent::*, CONFIG, ITEMS_PER_PAGE, USER_CHAN,
+    ap_url, blocklisted_emails::BlocklistedEmail, blogs::Blog, comments::Comment, db_conn::DbConn, follows::Follow,
+    instance::*, medias::Media, notifications::Notification, post_authors::PostAuthor, posts::Post,
+    safe_string::SafeString, schema::users, timeline::Timeline, Connection, Error, Result, UserEvent::*, CONFIG,
+    ITEMS_PER_PAGE, USER_CHAN,
 };
 use activitystreams::{
     activity::Delete,
@@ -16,8 +16,8 @@ use activitystreams::{
 };
 use chrono::{NaiveDateTime, Utc};
 use diesel::{
-    self, BelongingToDsl, BoolExpressionMethods, ExpressionMethods, OptionalExtension, QueryDsl,
-    RunQueryDsl, TextExpressionMethods,
+    self, BelongingToDsl, BoolExpressionMethods, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl,
+    TextExpressionMethods,
 };
 use ldap3::{LdapConn, Scope, SearchEntry};
 use openssl::{
@@ -31,8 +31,7 @@ use plume_common::{
         inbox::{AsActor, AsObject, FromId},
         request::get,
         sign::{gen_keypair, Error as SignError, Result as SignResult, Signer},
-        ActivityStream, ApSignature, CustomPerson, Id, IntoId, PublicKey, ToAsString, ToAsUri,
-        PUBLIC_VISIBILITY,
+        ActivityStream, ApSignature, CustomPerson, Id, IntoId, PublicKey, ToAsString, ToAsUri, PUBLIC_VISIBILITY,
     },
     utils,
 };
@@ -145,7 +144,6 @@ impl User {
             .map_err(Error::from)
     }
 
-
     pub async fn delete(&self, conn: &mut Connection) -> Result<()> {
         use crate::schema::post_authors;
 
@@ -155,14 +153,11 @@ impl User {
                     blog.delete(conn)?;
                 }
             }
-
         }
 
         // delete the posts if they is the only author
-        let all_their_posts_ids: Vec<i32> = post_authors::table
-            .filter(post_authors::author_id.eq(self.id))
-            .select(post_authors::post_id)
-            .load(conn)?;
+        let all_their_posts_ids: Vec<i32> =
+            post_authors::table.filter(post_authors::author_id.eq(self.id)).select(post_authors::post_id).load(conn)?;
         for post_id in all_their_posts_ids {
             // disabling this lint, because otherwise we'd have to turn it on
             // the head, and make it even harder to follow!
@@ -186,16 +181,10 @@ impl User {
 
         for comment in Comment::list_by_author(conn, self.id)? {
             let delete_activity = comment.build_delete(conn)?;
-            crate::inbox::inbox(
-                conn,
-                serde_json::to_value(&delete_activity).map_err(Error::from)?,
-            ).await?;
+            crate::inbox::inbox(conn, serde_json::to_value(&delete_activity).map_err(Error::from)?).await?;
         }
 
-        diesel::delete(self)
-            .execute(conn)
-            .map(|_| ())
-            .map_err(Error::from)
+        diesel::delete(self).execute(conn).map(|_| ()).map_err(Error::from)
     }
 
     pub fn get_instance(&self, conn: &mut Connection) -> Result<Instance> {
@@ -203,11 +192,7 @@ impl User {
     }
 
     pub fn set_role(&self, conn: &mut Connection, new_role: Role) -> Result<()> {
-        diesel::update(self)
-            .set(users::role.eq(new_role as i32))
-            .execute(conn)
-            .map(|_| ())
-            .map_err(Error::from)
+        diesel::update(self).set(users::role.eq(new_role as i32)).execute(conn).map(|_| ()).map_err(Error::from)
     }
 
     pub fn count_local(conn: &mut Connection) -> Result<i64> {
@@ -220,10 +205,7 @@ impl User {
     }
 
     pub async fn find_by_fqn(conn: &mut Connection, fqn: &str) -> Result<User> {
-        let from_db = users::table
-            .filter(users::fqn.eq(fqn))
-            .first(conn)
-            .optional()?;
+        let from_db = users::table.filter(users::fqn.eq(fqn)).first(conn).optional()?;
         if let Some(from_db) = from_db {
             Ok(from_db)
         } else {
@@ -231,20 +213,12 @@ impl User {
         }
     }
 
-    pub fn search_local_by_name(
-        conn: &mut Connection,
-        name: &str,
-        (min, max): (i32, i32),
-    ) -> Result<Vec<User>> {
+    pub fn search_local_by_name(conn: &mut Connection, name: &str, (min, max): (i32, i32)) -> Result<Vec<User>> {
         users::table
             .filter(users::instance_id.eq(Instance::get_local()?.id))
             .filter(users::role.ne(Role::Instance as i32))
             // TODO: use `ilike` instead of `like` for PostgreSQL
-            .filter(
-                users::username
-                    .like(format!("%{}%", name))
-                    .or(users::display_name.like(format!("%{}%", name))),
-            )
+            .filter(users::username.like(format!("%{}%", name)).or(users::display_name.like(format!("%{}%", name))))
             .order(users::username.asc())
             .offset(min.into())
             .limit((max - min).into())
@@ -269,22 +243,18 @@ impl User {
     }
 
     async fn fetch_from_webfinger(conn: &mut Connection, acct: &str) -> Result<User> {
-        let link = resolve(acct.to_owned(), true).await?
+        let link = resolve(acct.to_owned(), true)
+            .await?
             .links
             .into_iter()
             .find(|l| l.mime_type == Some(String::from("application/activity+json")))
             .ok_or(Error::Webfinger)?;
-        User::from_id(
-            conn,
-            link.href.as_ref().ok_or(Error::Webfinger)?,
-            None,
-            CONFIG.proxy(),
-        ).await
-        .map_err(|(_, e)| e)
+        User::from_id(conn, link.href.as_ref().ok_or(Error::Webfinger)?, None, CONFIG.proxy()).await.map_err(|(_, e)| e)
     }
 
     pub async fn fetch_remote_interact_uri(acct: &str) -> Result<String> {
-        resolve(acct.to_owned(), true).await?
+        resolve(acct.to_owned(), true)
+            .await?
             .links
             .into_iter()
             .find(|l| l.rel == "http://ostatus.org/schema/1.0/subscribe")
@@ -319,28 +289,17 @@ impl User {
             let pub_key = &json.ext_one.public_key.public_key_pem;
             diesel::update(self)
                 .set((
-                    users::username.eq(json
-                        .ap_actor_ref()
-                        .preferred_username()
-                        .ok_or(Error::MissingApProperty)?),
+                    users::username.eq(json.ap_actor_ref().preferred_username().ok_or(Error::MissingApProperty)?),
                     users::display_name.eq(json
                         .ap_actor_ref()
                         .name()
                         .ok_or(Error::MissingApProperty)?
                         .to_as_string()
                         .ok_or(Error::MissingApProperty)?),
-                    users::outbox_url.eq(json
-                        .ap_actor_ref()
-                        .outbox()?
-                        .ok_or(Error::MissingApProperty)?
-                        .as_str()),
+                    users::outbox_url.eq(json.ap_actor_ref().outbox()?.ok_or(Error::MissingApProperty)?.as_str()),
                     users::inbox_url.eq(json.ap_actor_ref().inbox()?.as_str()),
                     users::summary.eq(SafeString::new(
-                        &json
-                            .ap_actor_ref()
-                            .summary()
-                            .and_then(|summary| summary.to_as_string())
-                            .unwrap_or_default(),
+                        &json.ap_actor_ref().summary().and_then(|summary| summary.to_as_string()).unwrap_or_default(),
                     )),
                     users::followers_endpoint.eq(json
                         .ap_actor_ref()
@@ -369,21 +328,14 @@ impl User {
 
         let mut ldap_conn = LdapConn::new(&ldap.addr).map_err(|_| Error::NotFound)?;
         let ldap_name = format!("{}={},{}", ldap.user_name_attr, name, ldap.base_dn);
-        let bind = ldap_conn
-            .simple_bind(&ldap_name, password)
-            .map_err(|_| Error::NotFound)?;
+        let bind = ldap_conn.simple_bind(&ldap_name, password).map_err(|_| Error::NotFound)?;
 
         if bind.success().is_err() {
             return Err(Error::NotFound);
         }
 
         let search = ldap_conn
-            .search(
-                &ldap_name,
-                Scope::Base,
-                "(|(objectClass=person)(objectClass=user))",
-                vec![&ldap.mail_attr],
-            )
+            .search(&ldap_name, Scope::Base, "(|(objectClass=person)(objectClass=user))", vec![&ldap.mail_attr])
             .map_err(|_| Error::NotFound)?
             .success()
             .map_err(|_| Error::NotFound)?;
@@ -414,10 +366,7 @@ impl User {
             } else {
                 return false;
             };
-            let name = format!(
-                "{}={},{}",
-                ldap.user_name_attr, &self.username, ldap.base_dn
-            );
+            let name = format!("{}={},{}", ldap.user_name_attr, &self.username, ldap.base_dn);
             if let Ok(bind) = conn.simple_bind(&name, password) {
                 bind.success().is_ok()
             } else {
@@ -444,8 +393,7 @@ impl User {
 
         match user {
             Ok(user) if user.hashed_password.is_some() => {
-                if bcrypt::verify(password, user.hashed_password.as_ref().unwrap()).unwrap_or(false)
-                {
+                if bcrypt::verify(password, user.hashed_password.as_ref().unwrap()).unwrap_or(false) {
                     Ok(user)
                 } else {
                     Err(Error::NotFound)
@@ -464,9 +412,7 @@ impl User {
                 }
                 // if no user was found, and we were unable to auto-register from ldap
                 // fake-verify a password, and return an error.
-                let other = User::get(conn, 1)
-                    .expect("No user is registered")
-                    .hashed_password;
+                let other = User::get(conn, 1).expect("No user is registered").hashed_password;
                 other.map(|pass| bcrypt::verify(password, &pass));
                 e
             }
@@ -474,9 +420,7 @@ impl User {
     }
 
     pub fn reset_password(&self, conn: &mut Connection, pass: &str) -> Result<()> {
-        diesel::update(self)
-            .set(users::hashed_password.eq(User::hash_pass(pass)?))
-            .execute(conn)?;
+        diesel::update(self).set(users::hashed_password.eq(User::hash_pass(pass)?)).execute(conn)?;
         Ok(())
     }
 
@@ -496,11 +440,8 @@ impl User {
     pub fn outbox_collection(&self, conn: &mut Connection) -> Result<OrderedCollection> {
         let mut coll = OrderedCollection::new();
         let first = &format!("{}?page=1", &self.outbox_url);
-        let last = &format!(
-            "{}?page={}",
-            &self.outbox_url,
-            self.get_activities_count(conn) / i64::from(ITEMS_PER_PAGE) + 1
-        );
+        let last =
+            &format!("{}?page={}", &self.outbox_url, self.get_activities_count(conn) / i64::from(ITEMS_PER_PAGE) + 1);
         coll.set_first(first.parse::<IriString>()?);
         coll.set_last(last.parse::<IriString>()?);
         coll.set_total_items(self.get_activities_count(conn) as u64);
@@ -511,9 +452,7 @@ impl User {
         conn: &mut Connection,
         (min, max): (i32, i32),
     ) -> Result<ActivityStream<OrderedCollectionPage>> {
-        Ok(ActivityStream::new(
-            self.outbox_collection_page(conn, (min, max))?,
-        ))
+        Ok(ActivityStream::new(self.outbox_collection_page(conn, (min, max))?))
     }
     pub fn outbox_collection_page(
         &self,
@@ -524,21 +463,12 @@ impl User {
         let n_acts = self.get_activities_count(conn);
         let mut coll = OrderedCollectionPage::new();
         if n_acts - i64::from(min) >= i64::from(ITEMS_PER_PAGE) {
-            coll.set_next(
-                format!("{}?page={}", &self.outbox_url, min / ITEMS_PER_PAGE + 2)
-                    .parse::<IriString>()?,
-            );
+            coll.set_next(format!("{}?page={}", &self.outbox_url, min / ITEMS_PER_PAGE + 2).parse::<IriString>()?);
         }
         if min > 0 {
-            coll.set_prev(
-                format!("{}?page={}", &self.outbox_url, min / ITEMS_PER_PAGE)
-                    .parse::<IriString>()?,
-            );
+            coll.set_prev(format!("{}?page={}", &self.outbox_url, min / ITEMS_PER_PAGE).parse::<IriString>()?);
         }
-        coll.set_many_items(
-            acts.iter()
-                .filter_map(|value| AnyBase::from_arbitrary_json(value).ok()),
-        );
+        coll.set_many_items(acts.iter().filter_map(|value| AnyBase::from_arbitrary_json(value).ok()));
         coll.set_part_of(self.outbox_url.parse::<IriString>()?);
         Ok(coll)
     }
@@ -562,11 +492,7 @@ impl User {
     }
 
     pub fn fetch_outbox<T: Activity + serde::de::DeserializeOwned>(&self) -> Result<Vec<T>> {
-        let res = get(
-            &self.outbox_url[..],
-            Self::get_sender(),
-            CONFIG.proxy().cloned(),
-        )?;
+        let res = get(&self.outbox_url[..], Self::get_sender(), CONFIG.proxy().cloned())?;
         let text = &res.text()?;
         let json: serde_json::Value = serde_json::from_str(text)?;
         if let Some(first) = json.get("first") {
@@ -598,11 +524,7 @@ impl User {
     }
 
     pub fn fetch_followers_ids(&self) -> Result<Vec<String>> {
-        let res = get(
-            &self.followers_endpoint[..],
-            Self::get_sender(),
-            CONFIG.proxy().cloned(),
-        )?;
+        let res = get(&self.followers_endpoint[..], Self::get_sender(), CONFIG.proxy().cloned())?;
         let text = &res.text()?;
         let json: serde_json::Value = serde_json::from_str(text)?;
         Ok(json["items"]
@@ -623,11 +545,7 @@ impl User {
             .first(conn)
             .unwrap()
     }
-    fn get_activities_page(
-        &self,
-        conn: &mut Connection,
-        (min, max): (i32, i32),
-    ) -> Result<Vec<serde_json::Value>> {
+    fn get_activities_page(&self, conn: &mut Connection, (min, max): (i32, i32)) -> Result<Vec<serde_json::Value>> {
         use crate::schema::post_authors;
         use crate::schema::posts;
         let posts_by_self = PostAuthor::belonging_to(self).select(post_authors::post_id);
@@ -640,38 +558,23 @@ impl User {
             .load::<Post>(conn)?;
         Ok(posts
             .into_iter()
-            .filter_map(|p| {
-                p.create_activity(conn)
-                    .ok()
-                    .and_then(|a| serde_json::to_value(a).ok())
-            })
+            .filter_map(|p| p.create_activity(conn).ok().and_then(|a| serde_json::to_value(a).ok()))
             .collect::<Vec<serde_json::Value>>())
     }
 
     pub fn get_followers(&self, conn: &mut Connection) -> Result<Vec<User>> {
         use crate::schema::follows;
         let follows = Follow::belonging_to(self).select(follows::follower_id);
-        users::table
-            .filter(users::id.eq_any(follows))
-            .load::<User>(conn)
-            .map_err(Error::from)
+        users::table.filter(users::id.eq_any(follows)).load::<User>(conn).map_err(Error::from)
     }
 
     pub fn count_followers(&self, conn: &mut Connection) -> Result<i64> {
         use crate::schema::follows;
         let follows = Follow::belonging_to(self).select(follows::follower_id);
-        users::table
-            .filter(users::id.eq_any(follows))
-            .count()
-            .get_result(conn)
-            .map_err(Error::from)
+        users::table.filter(users::id.eq_any(follows)).count().get_result(conn).map_err(Error::from)
     }
 
-    pub fn get_followers_page(
-        &self,
-        conn: &mut Connection,
-        (min, max): (i32, i32),
-    ) -> Result<Vec<User>> {
+    pub fn get_followers_page(&self, conn: &mut Connection, (min, max): (i32, i32)) -> Result<Vec<User>> {
         use crate::schema::follows;
         let follows = Follow::belonging_to(self).select(follows::follower_id);
         users::table
@@ -685,36 +588,21 @@ impl User {
     pub fn get_followed(&self, conn: &mut Connection) -> Result<Vec<User>> {
         use crate::schema::follows::dsl::*;
         let f = follows.filter(follower_id.eq(self.id)).select(following_id);
-        users::table
-            .filter(users::id.eq_any(f))
-            .load::<User>(conn)
-            .map_err(Error::from)
+        users::table.filter(users::id.eq_any(f)).load::<User>(conn).map_err(Error::from)
     }
 
     pub fn count_followed(&self, conn: &mut Connection) -> Result<i64> {
         use crate::schema::follows;
-        follows::table
-            .filter(follows::follower_id.eq(self.id))
-            .count()
-            .get_result(conn)
-            .map_err(Error::from)
+        follows::table.filter(follows::follower_id.eq(self.id)).count().get_result(conn).map_err(Error::from)
     }
 
-    pub fn get_followed_page(
-        &self,
-        conn: &mut Connection,
-        (min, max): (i32, i32),
-    ) -> Result<Vec<User>> {
+    pub fn get_followed_page(&self, conn: &mut Connection, (min, max): (i32, i32)) -> Result<Vec<User>> {
         use crate::schema::follows;
         let follows = follows::table
             .filter(follows::follower_id.eq(self.id))
             .select(follows::following_id)
             .limit((max - min).into());
-        users::table
-            .filter(users::id.eq_any(follows))
-            .offset(min.into())
-            .load::<User>(conn)
-            .map_err(Error::from)
+        users::table.filter(users::id.eq_any(follows)).offset(min.into()).load::<User>(conn).map_err(Error::from)
     }
 
     pub fn is_followed_by(&self, conn: &mut Connection, other_id: i32) -> Result<bool> {
@@ -773,10 +661,8 @@ impl User {
     }
 
     pub fn get_keypair(&self) -> Result<PKey<Private>> {
-        PKey::from_rsa(Rsa::private_key_from_pem(
-            self.private_key.clone().ok_or(Error::Signature)?.as_ref(),
-        )?)
-        .map_err(Error::from)
+        PKey::from_rsa(Rsa::private_key_from_pem(self.private_key.clone().ok_or(Error::Signature)?.as_ref())?)
+            .map_err(Error::from)
     }
 
     pub fn rotate_keypair(&self, conn: &mut Connection) -> Result<PKey<Private>> {
@@ -788,10 +674,8 @@ impl User {
             self.get_keypair()
         } else {
             let (public_key, private_key) = gen_keypair();
-            let public_key =
-                String::from_utf8(public_key).expect("NewUser::new_local: public key error");
-            let private_key =
-                String::from_utf8(private_key).expect("NewUser::new_local: private key error");
+            let public_key = String::from_utf8(public_key).expect("NewUser::new_local: public key error");
+            let private_key = String::from_utf8(private_key).expect("NewUser::new_local: private key error");
             let res = PKey::from_rsa(Rsa::private_key_from_pem(private_key.as_ref())?)?;
             diesel::update(self)
                 .set((
@@ -847,24 +731,16 @@ impl User {
         let mut tombstone = Tombstone::new();
         tombstone.set_id(self.ap_url.parse()?);
 
-        let mut del = Delete::new(
-            self.ap_url.parse::<IriString>()?,
-            Base::retract(tombstone)?.into_generic()?,
-        );
+        let mut del = Delete::new(self.ap_url.parse::<IriString>()?, Base::retract(tombstone)?.into_generic()?);
         del.set_id(format!("{}#delete", self.ap_url).parse()?);
         del.set_many_tos(vec![PUBLIC_VISIBILITY.parse::<IriString>()?]);
-        del.set_many_ccs(
-            self.get_followers(conn)?
-                .into_iter()
-                .filter_map(|f| f.ap_url.parse::<IriString>().ok()),
-        );
+        del.set_many_ccs(self.get_followers(conn)?.into_iter().filter_map(|f| f.ap_url.parse::<IriString>().ok()));
 
         Ok(del)
     }
 
     pub fn avatar_url(&self, conn: &mut Connection) -> Option<String> {
-        self.avatar_id
-            .and_then(|id| Media::get(conn, id).and_then(|m| m.url()).ok())
+        self.avatar_id.and_then(|id| Media::get(conn, id).and_then(|m| m.url()).ok())
     }
 
     pub fn webfinger(&self, conn: &mut Connection) -> Result<Webfinger> {
@@ -881,11 +757,7 @@ impl User {
                 Link {
                     rel: String::from("http://schemas.google.com/g/2010#updates-from"),
                     mime_type: Some(String::from("application/atom+xml")),
-                    href: Some(self.get_instance(conn)?.compute_box(
-                        USER_PREFIX,
-                        &self.username,
-                        "feed.atom",
-                    )),
+                    href: Some(self.get_instance(conn)?.compute_box(USER_PREFIX, &self.username, "feed.atom")),
                     template: None,
                 },
                 Link {
@@ -908,19 +780,11 @@ impl User {
     }
 
     pub fn acct_authority(&self, conn: &mut Connection) -> Result<String> {
-        Ok(format!(
-            "{}@{}",
-            self.username,
-            self.get_instance(conn)?.public_domain
-        ))
+        Ok(format!("{}@{}", self.username, self.get_instance(conn)?.public_domain))
     }
 
     pub fn set_avatar(&self, conn: &mut Connection, id: i32) -> Result<()> {
-        diesel::update(self)
-            .set(users::avatar_id.eq(id))
-            .execute(conn)
-            .map(|_| ())
-            .map_err(Error::from)
+        diesel::update(self).set(users::avatar_id.eq(id)).execute(conn).map(|_| ()).map_err(Error::from)
     }
 
     pub fn needs_update(&self) -> bool {
@@ -985,24 +849,14 @@ impl FromId<Connection> for User {
 
     async fn from_activity(conn: &mut Connection, acct: CustomPerson) -> Result<Self> {
         let actor = acct.ap_actor_ref();
-        let username = actor
-            .preferred_username()
-            .ok_or(Error::MissingApProperty)?
-            .to_string();
+        let username = actor.preferred_username().ok_or(Error::MissingApProperty)?.to_string();
 
         if username.contains(&['<', '>', '&', '@', '\'', '"', ' ', '\t'][..]) {
-            tracing::error!(
-                "preferredUsername includes invalid character(s): {}",
-                &username
-            );
+            tracing::error!("preferredUsername includes invalid character(s): {}", &username);
             return Err(Error::InvalidValue);
         }
 
-        let summary = acct
-            .object_ref()
-            .summary()
-            .and_then(|prop| prop.to_as_string())
-            .unwrap_or_default();
+        let summary = acct.object_ref().summary().and_then(|prop| prop.to_as_string()).unwrap_or_default();
         let mut new_user = NewUser {
             display_name: acct
                 .object_ref()
@@ -1016,13 +870,8 @@ impl FromId<Connection> for User {
             summary_html: SafeString::new(&summary),
             summary,
             public_key: acct.ext_one.public_key.public_key_pem.to_string(),
-            shared_inbox_url: actor
-                .endpoints()?
-                .and_then(|e| e.shared_inbox.as_ref().map(|inbox| inbox.to_string())),
-            followers_endpoint: actor
-                .followers()?
-                .ok_or(Error::MissingApProperty)?
-                .to_string(),
+            shared_inbox_url: actor.endpoints()?.and_then(|e| e.shared_inbox.as_ref().map(|inbox| inbox.to_string())),
+            followers_endpoint: actor.followers()?.ok_or(Error::MissingApProperty)?.to_string(),
             ..NewUser::default()
         };
 
@@ -1031,13 +880,7 @@ impl FromId<Connection> for User {
         let (ap_url, inst) = {
             let any_base = acct.into_any_base()?;
             let id = any_base.id().ok_or(Error::MissingApProperty)?;
-            (
-                id.to_string(),
-                id.authority_components()
-                    .ok_or(Error::Url)?
-                    .host()
-                    .to_string(),
-            )
+            (id.to_string(), id.authority_components().ok_or(Error::Url)?.host().to_string())
         };
         new_user.ap_url = ap_url;
 
@@ -1094,9 +937,7 @@ impl AsActor<&mut Connection> for User {
     }
 
     fn is_local(&self) -> bool {
-        Instance::get_local()
-            .map(|i| self.instance_id == i.id)
-            .unwrap_or(false)
+        Instance::get_local().map(|i| self.instance_id == i.id).unwrap_or(false)
     }
 }
 
@@ -1272,13 +1113,7 @@ pub(crate) mod tests {
         vec![admin, user, other]
     }
 
-    fn fill_pages(
-        conn: &mut DbConn,
-    ) -> (
-        Vec<crate::posts::Post>,
-        Vec<crate::users::User>,
-        Vec<crate::blogs::Blog>,
-    ) {
+    fn fill_pages(conn: &mut DbConn) -> (Vec<crate::posts::Post>, Vec<crate::users::User>, Vec<crate::blogs::Blog>) {
         use crate::post_authors::NewPostAuthor;
         use crate::posts::NewPost;
 
@@ -1335,29 +1170,14 @@ pub(crate) mod tests {
                 Some(User::hash_pass("test_password").unwrap()),
             )
             .unwrap();
-            assert_eq!(
-                test_user.id,
-                User::find_by_name(&conn, "test", Instance::get_local().unwrap().id)
-                    .unwrap()
-                    .id
-            );
-            assert_eq!(
-                test_user.id,
-                User::find_by_fqn(&conn, &test_user.fqn).unwrap().id
-            );
-            assert_eq!(
-                test_user.id,
-                User::find_by_email(&conn, "test@example.com").unwrap().id
-            );
+            assert_eq!(test_user.id, User::find_by_name(&conn, "test", Instance::get_local().unwrap().id).unwrap().id);
+            assert_eq!(test_user.id, User::find_by_fqn(&conn, &test_user.fqn).unwrap().id);
+            assert_eq!(test_user.id, User::find_by_email(&conn, "test@example.com").unwrap().id);
             assert_eq!(
                 test_user.id,
                 User::find_by_ap_url(
                     &conn,
-                    &format!(
-                        "https://{}/@/{}/",
-                        Instance::get_local().unwrap().public_domain,
-                        "test"
-                    )
+                    &format!("https://{}/@/{}/", Instance::get_local().unwrap().public_domain, "test")
                 )
                 .unwrap()
                 .id
@@ -1388,11 +1208,7 @@ pub(crate) mod tests {
             let mut i = 0;
             while local_inst.has_admin(conn).unwrap() {
                 assert!(i < 100); //prevent from looping indefinitelly
-                local_inst
-                    .main_admin(conn)
-                    .unwrap()
-                    .set_role(conn, Role::Normal)
-                    .unwrap();
+                local_inst.main_admin(conn).unwrap().set_role(conn, Role::Normal).unwrap();
                 i += 1;
             }
             inserted[0].set_role(conn, Role::Admin).unwrap();
@@ -1417,10 +1233,7 @@ pub(crate) mod tests {
             )
             .unwrap();
 
-            assert_eq!(
-                User::login(conn, "test", "test_password").unwrap().id,
-                test_user.id
-            );
+            assert_eq!(User::login(conn, "test", "test_password").unwrap().id, test_user.id);
             assert!(User::login(conn, "test", "other_password").is_err());
             Ok(())
         });
@@ -1436,9 +1249,7 @@ pub(crate) mod tests {
             assert_eq!(page.len(), 2);
             assert!(page[0].username <= page[1].username);
 
-            let mut last_username = User::get_local_page(conn, (0, 1)).unwrap()[0]
-                .username
-                .clone();
+            let mut last_username = User::get_local_page(conn, (0, 1)).unwrap()[0].username.clone();
             for i in 1..User::count_local(conn).unwrap() as i32 {
                 let page = User::get_local_page(conn, (i, i + 1)).unwrap();
                 assert_eq!(page.len(), 1);
@@ -1446,9 +1257,7 @@ pub(crate) mod tests {
                 last_username = page[0].username.clone();
             }
             assert_eq!(
-                User::get_local_page(conn, (0, User::count_local(conn).unwrap() as i32 + 10))
-                    .unwrap()
-                    .len() as i64,
+                User::get_local_page(conn, (0, User::count_local(conn).unwrap() as i32 + 10)).unwrap().len() as i64,
                 User::count_local(conn).unwrap()
             );
             Ok(())

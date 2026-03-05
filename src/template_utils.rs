@@ -1,4 +1,4 @@
-use plume_models::{db_conn::DbConn, comments::CommentTree, notifications::*, users::User, PlumeRocket};
+use plume_models::{comments::CommentTree, db_conn::DbConn, notifications::*, users::User, PlumeRocket};
 
 use crate::templates::Html;
 use gettext::Catalog;
@@ -12,41 +12,16 @@ pub use plume_common::utils::escape;
 
 pub static CACHE_NAME: &str = env!("CACHE_ID");
 
-pub type BaseContext<'a> = &'a (
-    Option<String>,
-    &'a Catalog,
-    Option<User>,
-    Option<(String, String)>,
-);
+pub type BaseContext<'a> = &'a (Option<String>, &'a Catalog, Option<User>, Option<(String, String)>);
 
 pub trait IntoContext {
-    fn to_context(
-        &mut self,
-    ) -> (
-        Option<String>,
-        &Catalog,
-        Option<User>,
-        Option<(String, String)>,
-    );
+    fn to_context(&mut self) -> (Option<String>, &Catalog, Option<User>, Option<(String, String)>);
 }
 
 impl IntoContext for (&mut DbConn, &PlumeRocket) {
-    fn to_context(
-        &mut self,
-    ) -> (
-        Option<String>,
-        &Catalog,
-        Option<User>,
-        Option<(String, String)>,
-    ) {
-
+    fn to_context(&mut self) -> (Option<String>, &Catalog, Option<User>, Option<(String, String)>) {
         let avatar_url = self.1.user.as_ref().and_then(|u| u.avatar_url(self.0));
-        (
-            avatar_url,
-            &self.1.intl.catalog,
-            self.1.user.clone(),
-            self.1.flash_msg.clone(),
-        )
+        (avatar_url, &self.1.intl.catalog, self.1.user.clone(), self.1.flash_msg.clone())
     }
 }
 
@@ -69,15 +44,9 @@ impl<'r> Responder<'r, 'static> for Ructe {
             // "W/" prefix, that we ignore here
             .any(|s| s[1..s.len() - 1] == etag || s[3..s.len() - 1] == etag)
         {
-            Response::build()
-                .status(Status::NotModified)
-                .raw_header(ETAG.as_str(), etag)
-                .ok()
+            Response::build().status(Status::NotModified).raw_header(ETAG.as_str(), etag).ok()
         } else {
-            Response::build()
-                .merge(HtmlCt(self.0).respond_to(r)?)
-                .raw_header(ETAG.as_str(), etag)
-                .ok()
+            Response::build().merge(HtmlCt(self.0).respond_to(r)?).raw_header(ETAG.as_str(), etag).ok()
         }
     }
 }
@@ -139,17 +108,11 @@ impl Size {
 pub fn default_avatar(avatar_url: &Option<String>) -> &str {
     match avatar_url {
         Some(url) => url,
-        None => &"/static/images/default-avatar.png"
+        None => &"/static/images/default-avatar.png",
     }
 }
 
-pub fn avatar(
-    user: &User,
-    avatar_url: &Option<String>,
-    size: Size,
-    pad: bool,
-    catalog: &Catalog,
-) -> Html<String> {
+pub fn avatar(user: &User, avatar_url: &Option<String>, size: Size, pad: bool, catalog: &Catalog) -> Html<String> {
     let name = escape(&user.name()).to_string();
     Html(format!(
         r#"<div class="avatar {size} {padded}"
@@ -158,13 +121,23 @@ pub fn avatar(
         aria-label="{title}"></div>
         <img class="hidden u-photo" src="{url}"/>"#,
         size = size.as_str(),
-        padded = if pad { "padded" } else { "" },
+        padded = if pad {
+            "padded"
+        } else {
+            ""
+        },
         url = default_avatar(avatar_url),
         title = i18n!(catalog, "{0}'s avatar"; name),
     ))
 }
 
-pub fn render_comments(ctx: BaseContext, comments: Vec<CommentTree>, in_reply_to: &String, blog: &str, slug: &str) -> Html<String> {
+pub fn render_comments(
+    ctx: BaseContext,
+    comments: Vec<CommentTree>,
+    in_reply_to: &String,
+    blog: &str,
+    slug: &str,
+) -> Html<String> {
     let mut res: Vec<u8> = vec![];
 
     for comment in comments {
@@ -174,7 +147,14 @@ pub fn render_comments(ctx: BaseContext, comments: Vec<CommentTree>, in_reply_to
     Html(String::from_utf8(res).unwrap())
 }
 
-pub fn render_comment(res: &mut Vec<u8>, ctx: BaseContext, ct: CommentTree, in_reply_to: Option<&String>, blog: &str, slug: &str) {
+pub fn render_comment(
+    res: &mut Vec<u8>,
+    ctx: BaseContext,
+    ct: CommentTree,
+    in_reply_to: Option<&String>,
+    blog: &str,
+    slug: &str,
+) {
     crate::templates::partials::comment_head_html(&mut *res, ctx, &ct, in_reply_to, blog, slug).unwrap();
     let ap_url = ct.comment.ap_url;
     for comment in ct.responses {
@@ -203,12 +183,7 @@ pub fn tabs(links: &[(impl AsRef<str>, String, bool)]) -> Html<String> {
 pub fn paginate(catalog: &Catalog, page: i32, total: i32) -> Html<String> {
     paginate_param(catalog, page, total, None)
 }
-pub fn paginate_param(
-    catalog: &Catalog,
-    page: i32,
-    total: i32,
-    param: Option<String>,
-) -> Html<String> {
+pub fn paginate_param(catalog: &Catalog, page: i32, total: i32, param: Option<String>) -> Html<String> {
     let mut res = String::new();
     let param = param
         .map(|mut p| {
@@ -219,25 +194,11 @@ pub fn paginate_param(
     res.push_str(r#"<div class="pagination" dir="auto">"#);
     if page != 1 {
         res.push_str(
-            format!(
-                r#"<a href="?{}page={}">{}</a>"#,
-                param,
-                page - 1,
-                i18n!(catalog, "Previous page")
-            )
-            .as_str(),
+            format!(r#"<a href="?{}page={}">{}</a>"#, param, page - 1, i18n!(catalog, "Previous page")).as_str(),
         );
     }
     if page < total {
-        res.push_str(
-            format!(
-                r#"<a href="?{}page={}">{}</a>"#,
-                param,
-                page + 1,
-                i18n!(catalog, "Next page")
-            )
-            .as_str(),
-        );
+        res.push_str(format!(r#"<a href="?{}page={}">{}</a>"#, param, page + 1, i18n!(catalog, "Next page")).as_str());
     }
     res.push_str("</div>");
     Html(res)
@@ -357,13 +318,7 @@ impl Input {
     /// Shows an error message
     pub fn error(mut self, errs: &validator::ValidationErrors) -> Input {
         if let Some(field_errs) = errs.clone().field_errors().get(self.name.as_str()) {
-            self.error = Some(
-                field_errs[0]
-                    .message
-                    .clone()
-                    .unwrap_or_default()
-                    .to_string(),
-            );
+            self.error = Some(field_errs[0].message.clone().unwrap_or_default().to_string());
         }
         self
     }
@@ -392,26 +347,16 @@ impl Input {
             } else {
                 String::new()
             },
-            details = self
-                .details
-                .map(|d| format!("<small>{}</small>", d))
-                .unwrap_or_default(),
-            error = self
-                .error
-                .map(|e| format!(r#"<p class="error" dir="auto">{}</p>"#, e))
-                .unwrap_or_default(),
+            details = self.details.map(|d| format!("<small>{}</small>", d)).unwrap_or_default(),
+            error = self.error.map(|e| format!(r#"<p class="error" dir="auto">{}</p>"#, e)).unwrap_or_default(),
             val = escape(&self.default.unwrap_or_default()),
-            props = self
-                .props
-                .into_iter()
-                .fold(String::new(), |mut res, (key, val)| {
-                    res.push_str(&format!("{}=\"{}\" ", key, val));
-                    res
-                })
+            props = self.props.into_iter().fold(String::new(), |mut res, (key, val)| {
+                res.push_str(&format!("{}=\"{}\" ", key, val));
+                res
+            })
         ))
     }
 }
-
 
 pub struct PostCard {
     pub post: plume_models::posts::Post,
@@ -424,7 +369,6 @@ pub struct PostCard {
     pub count_reshares: i64,
 }
 
-
 impl PostCard {
     pub fn from(conn: &mut DbConn, post: plume_models::posts::Post, user: &Option<User>) -> PostCard {
         let cover_url = post.cover_url(conn).unwrap_or_default();
@@ -435,13 +379,19 @@ impl PostCard {
         let count_likes = post.count_likes(conn).unwrap_or_default();
         let count_reshares = post.count_reshares(conn).unwrap_or_default();
 
-        PostCard {post, cover_url, author, is_author, blog, blog_fqn, count_likes, count_reshares}
+        PostCard {
+            post,
+            cover_url,
+            author,
+            is_author,
+            blog,
+            blog_fqn,
+            count_likes,
+            count_reshares,
+        }
     }
 
     pub fn from_posts(conn: &mut DbConn, posts: Vec<plume_models::posts::Post>, user: &Option<User>) -> Vec<PostCard> {
-        posts.into_iter()
-            .map(|p| PostCard::from(conn, p, user))
-            .collect()
+        posts.into_iter().map(|p| PostCard::from(conn, p, user)).collect()
     }
-
 }

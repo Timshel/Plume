@@ -11,11 +11,8 @@ fn compute_static_hash() -> String {
         .spawn()
         .expect("failed find command");
 
-    let sort = Command::new("sort")
-        .stdin(find.stdout.unwrap())
-        .stdout(Stdio::piped())
-        .spawn()
-        .expect("failed sort command");
+    let sort =
+        Command::new("sort").stdin(find.stdout.unwrap()).stdout(Stdio::piped()).spawn().expect("failed sort command");
 
     let xargs = Command::new("xargs")
         .args(&["stat", "-c'%n %Y'"])
@@ -35,26 +32,18 @@ fn compute_static_hash() -> String {
 }
 
 fn main() {
-    Ructe::from_env()
-        .expect("This must be run with cargo")
-        .compile_templates("templates")
-        .expect("compile templates");
+    Ructe::from_env().expect("This must be run with cargo").compile_templates("templates").expect("compile templates");
 
     compile_themes().expect("Theme compilation error");
-    recursive_copy(&Path::new("assets").join("icons"), Path::new("static"))
-        .expect("Couldn't copy icons");
-    recursive_copy(&Path::new("assets").join("images"), Path::new("static"))
-        .expect("Couldn't copy images");
+    recursive_copy(&Path::new("assets").join("icons"), Path::new("static")).expect("Couldn't copy icons");
+    recursive_copy(&Path::new("assets").join("images"), Path::new("static")).expect("Couldn't copy images");
     create_dir_all(&Path::new("static").join("media")).expect("Couldn't init media directory");
 
     let cache_id = &compute_static_hash()[..8];
     println!("cargo:rerun-if-changed=plume-front/pkg/plume_front_bg.wasm");
-    copy(
-        "plume-front/pkg/plume_front_bg.wasm",
-        "static/plume_front_bg.wasm",
-    )
-    .and_then(|_| copy("plume-front/pkg/plume_front.js", "static/plume_front.js"))
-    .ok();
+    copy("plume-front/pkg/plume_front_bg.wasm", "static/plume_front_bg.wasm")
+        .and_then(|_| copy("plume-front/pkg/plume_front.js", "static/plume_front.js"))
+        .ok();
 
     println!("cargo:rustc-env=CACHE_ID={}", cache_id)
 }

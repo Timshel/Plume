@@ -1,6 +1,6 @@
 use crate::{
-    instance::Instance, notifications::*, posts::Post, schema::reshares, timeline::*, users::User,
-    Connection, Error, Result, CONFIG,
+    instance::Instance, notifications::*, posts::Post, schema::reshares, timeline::*, users::User, Connection, Error,
+    Result, CONFIG,
 };
 use activitystreams::{
     activity::{Announce, Undo},
@@ -37,18 +37,9 @@ impl Reshare {
     insert!(reshares, NewReshare);
     get!(reshares);
     find_by!(reshares, find_by_ap_url, ap_url as &str);
-    find_by!(
-        reshares,
-        find_by_user_on_post,
-        user_id as i32,
-        post_id as i32
-    );
+    find_by!(reshares, find_by_user_on_post, user_id as i32, post_id as i32);
 
-    pub fn get_recents_for_author(
-        conn: &mut Connection,
-        user: &User,
-        limit: i64,
-    ) -> Result<Vec<Reshare>> {
+    pub fn get_recents_for_author(conn: &mut Connection, user: &User, limit: i64) -> Result<Vec<Reshare>> {
         reshares::table
             .filter(reshares::user_id.eq(user.id))
             .order(reshares::creation_date.desc())
@@ -72,10 +63,7 @@ impl Reshare {
         );
         act.set_id(self.ap_url.parse::<IriString>()?);
         act.set_many_tos(vec![PUBLIC_VISIBILITY.parse::<IriString>()?]);
-        act.set_many_ccs(vec![self
-            .get_user(conn)?
-            .followers_endpoint
-            .parse::<IriString>()?]);
+        act.set_many_ccs(vec![self.get_user(conn)?.followers_endpoint.parse::<IriString>()?]);
 
         Ok(act)
     }
@@ -104,10 +92,7 @@ impl Reshare {
         );
         act.set_id(format!("{}#delete", self.ap_url).parse::<IriString>()?);
         act.set_many_tos(vec![PUBLIC_VISIBILITY.parse::<IriString>()?]);
-        act.set_many_ccs(vec![self
-            .get_user(conn)?
-            .followers_endpoint
-            .parse::<IriString>()?]);
+        act.set_many_ccs(vec![self.get_user(conn)?.followers_endpoint.parse::<IriString>()?]);
 
         Ok(act)
     }
@@ -143,14 +128,10 @@ impl FromId<Connection> for Reshare {
     }
 
     async fn from_activity(conn: &mut Connection, act: Announce) -> Result<Self> {
-
         let new_reshare = NewReshare {
             post_id: Post::from_id(
                 conn,
-                act.object_unchecked()
-                    .as_single_id()
-                    .ok_or(Error::MissingApProperty)?
-                    .as_str(),
+                act.object_unchecked().as_single_id().ok_or(Error::MissingApProperty)?.as_str(),
                 None,
                 CONFIG.proxy(),
             )
@@ -159,19 +140,14 @@ impl FromId<Connection> for Reshare {
             .id,
             user_id: User::from_id(
                 conn,
-                act.actor_unchecked()
-                    .as_single_id()
-                    .ok_or(Error::MissingApProperty)?
-                    .as_str(),
+                act.actor_unchecked().as_single_id().ok_or(Error::MissingApProperty)?.as_str(),
                 None,
                 CONFIG.proxy(),
-            ).await
+            )
+            .await
             .map_err(|(_, e)| e)?
             .id,
-            ap_url: act
-                .id_unchecked()
-                .ok_or(Error::MissingApProperty)?
-                .to_string(),
+            ap_url: act.id_unchecked().ok_or(Error::MissingApProperty)?.to_string(),
         };
 
         let res = Reshare::insert(conn, new_reshare)?;

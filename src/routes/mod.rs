@@ -1,18 +1,15 @@
 #![warn(clippy::too_many_arguments)]
 use crate::template_utils::Ructe;
-use atom_syndication::{
-    ContentBuilder, Entry, EntryBuilder, Feed, FeedBuilder, LinkBuilder, Person, PersonBuilder,
-};
+use atom_syndication::{ContentBuilder, Entry, EntryBuilder, Feed, FeedBuilder, LinkBuilder, Person, PersonBuilder};
 use chrono::{naive::NaiveDateTime, DateTime, Duration, Utc};
 use plume_models::{posts::Post, Connection, CONFIG, ITEMS_PER_PAGE};
 use rocket::{
     form::{FromFormField, ValueField},
     fs::NamedFile,
     http::{
-        Header,
         hyper::header::{CACHE_CONTROL, ETAG},
         uri::fmt::{FromUriParam, Query},
-        Status,
+        Header, Status,
     },
     request::{self, FromRequest, Outcome, Request},
     response::{self, Flash, Redirect, Responder, Response},
@@ -143,17 +140,8 @@ pub fn build_atom_feed(
         .title(title)
         .id(uri)
         .updated(DateTime::<Utc>::from_naive_utc_and_offset(*updated, Utc))
-        .entries(
-            entries
-                .into_iter()
-                .map(|p| post_to_atom(p, conn))
-                .collect::<Vec<Entry>>(),
-        )
-        .links(vec![LinkBuilder::default()
-            .href(uri)
-            .rel("self")
-            .mime_type("application/atom+xml".to_string())
-            .build()])
+        .entries(entries.into_iter().map(|p| post_to_atom(p, conn)).collect::<Vec<Entry>>())
+        .links(vec![LinkBuilder::default().href(uri).rel("self").mime_type("application/atom+xml".to_string()).build()])
         .build()
 }
 
@@ -170,19 +158,12 @@ fn post_to_atom(post: Post, conn: &mut Connection) -> Entry {
             post.get_authors(conn)
                 .expect("Atom feed: author error")
                 .into_iter()
-                .map(|a| {
-                    PersonBuilder::default()
-                        .name(a.display_name)
-                        .uri(a.ap_url)
-                        .build()
-                })
+                .map(|a| PersonBuilder::default().name(a.display_name).uri(a.ap_url).build())
                 .collect::<Vec<Person>>(),
         )
         // Using RFC 4287 format, see https://tools.ietf.org/html/rfc4287#section-3.3 for dates
         // eg: 2003-12-13T18:30:02Z (Z is here because there is no timezone support with the NaiveDateTime crate)
-        .published(Some(
-            DateTime::<Utc>::from_naive_utc_and_offset(post.creation_date, Utc).into(),
-        ))
+        .published(Some(DateTime::<Utc>::from_naive_utc_and_offset(post.creation_date, Utc).into()))
         .updated(DateTime::<Utc>::from_naive_utc_and_offset(post.creation_date, Utc))
         .id(post.ap_url.clone())
         .links(vec![LinkBuilder::default().href(post.ap_url).build()])
@@ -231,29 +212,17 @@ impl<'r> Responder<'r, 'r> for ThemeFile {
         hasher.write(&contents);
         let etag = format!("{:x}", hasher.finish());
 
-        if r.headers()
-            .get("If-None-Match")
-            .any(|s| s[1..s.len() - 1] == etag)
-        {
-            Response::build()
-                .status(Status::NotModified)
-                .raw_header(ETAG.as_str(), etag)
-                .ok()
+        if r.headers().get("If-None-Match").any(|s| s[1..s.len() - 1] == etag) {
+            Response::build().status(Status::NotModified).raw_header(ETAG.as_str(), etag).ok()
         } else {
-            Response::build()
-                .merge(self.0.respond_to(r)?)
-                .raw_header(ETAG.as_str(), etag)
-                .ok()
+            Response::build().merge(self.0.respond_to(r)?).raw_header(ETAG.as_str(), etag).ok()
         }
     }
 }
 
 #[get("/static/cached/<_build_id>/css/<file..>", rank = 1)]
 pub async fn theme_files(file: PathBuf, _build_id: &str) -> Option<ThemeFile> {
-    NamedFile::open(Path::new("static/css/").join(file))
-        .await
-        .ok()
-        .map(ThemeFile)
+    NamedFile::open(Path::new("static/css/").join(file)).await.ok().map(ThemeFile)
 }
 
 #[get("/static/cached/<_build_id>/<file..>", rank = 2)]
@@ -264,18 +233,24 @@ pub async fn plume_static_files(file: std::path::PathBuf, _build_id: &str) -> Op
 #[get("/static/media/<file..>")]
 pub async fn plume_media_files(file: PathBuf) -> Option<CachedFile> {
     if CONFIG.s3.is_some() {
-        #[cfg(not(feature="s3"))]
+        #[cfg(not(feature = "s3"))]
         unreachable!();
 
-        #[cfg(feature="s3")]
+        #[cfg(feature = "s3")]
         {
-            let data = CONFIG.s3.as_ref().unwrap().get_bucket()
-                .get_object_blocking(format!("static/media/{}", file.to_string_lossy())).ok()?;
+            let data = CONFIG
+                .s3
+                .as_ref()
+                .unwrap()
+                .get_bucket()
+                .get_object_blocking(format!("static/media/{}", file.to_string_lossy()))
+                .ok()?;
 
-            let ct = data.headers().get("content-type")
+            let ct = data
+                .headers()
+                .get("content-type")
                 .and_then(|x| ContentType::parse_flexible(&x))
-                .or_else(|| file.extension()
-                    .and_then(|ext| ContentType::from_extension(&ext.to_string_lossy())))
+                .or_else(|| file.extension().and_then(|ext| ContentType::from_extension(&ext.to_string_lossy())))
                 .unwrap_or(ContentType::Binary);
 
             Some(CachedFile {
@@ -284,24 +259,18 @@ pub async fn plume_media_files(file: PathBuf) -> Option<CachedFile> {
             })
         }
     } else {
-        NamedFile::open(Path::new(&CONFIG.media_directory).join(file))
-            .await
-            .ok()
-            .map(|f| CachedFile {
-                inner: FileKind::Local(f),
-                cache_control: max_age(Duration::try_days(30).expect("Duration should not overflow")),
-            })
+        NamedFile::open(Path::new(&CONFIG.media_directory).join(file)).await.ok().map(|f| CachedFile {
+            inner: FileKind::Local(f),
+            cache_control: max_age(Duration::try_days(30).expect("Duration should not overflow")),
+        })
     }
 }
 #[get("/static/<file..>", rank = 3)]
 pub async fn static_files(file: std::path::PathBuf) -> Option<CachedFile> {
-    NamedFile::open(Path::new("static/").join(file))
-        .await
-        .ok()
-        .map(|f| CachedFile {
-            inner: FileKind::Local(f),
-            cache_control: max_age(Duration::try_days(30).expect("Duration should not overflow")),
-        })
+    NamedFile::open(Path::new("static/").join(file)).await.ok().map(|f| CachedFile {
+        inner: FileKind::Local(f),
+        cache_control: max_age(Duration::try_days(30).expect("Duration should not overflow")),
+    })
 }
 
 fn max_age(duration: Duration) -> Header<'static> {

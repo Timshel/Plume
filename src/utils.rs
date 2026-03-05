@@ -1,5 +1,5 @@
 use rocket::{
-    http::{RawStr, uri::Uri},
+    http::{uri::Uri, RawStr},
     response::{Flash, Redirect},
 };
 

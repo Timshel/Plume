@@ -1,15 +1,12 @@
 use crate::{
     blocklisted_emails::BlocklistedEmail,
-    Connection,
     db_conn::DbConn,
     schema::email_signups,
     users::{NewUser, Role, User},
-    Error, Result,
+    Connection, Error, Result,
 };
 use chrono::{offset::Utc, Duration, NaiveDateTime};
-use diesel::{
-    Connection as _, ExpressionMethods, Identifiable, Insertable, QueryDsl, Queryable, RunQueryDsl,
-};
+use diesel::{Connection as _, ExpressionMethods, Identifiable, Insertable, QueryDsl, Queryable, RunQueryDsl};
 use plume_common::utils::random_hex;
 use std::ops::Deref;
 
@@ -77,9 +74,7 @@ impl EmailSignup {
                 token: &token,
                 expiration_date,
             };
-            let _rows = diesel::insert_into(email_signups::table)
-                .values(new_signup)
-                .execute(conn)?;
+            let _rows = diesel::insert_into(email_signups::table).values(new_signup).execute(conn)?;
 
             Ok(token)
         })
@@ -148,9 +143,7 @@ impl EmailSignup {
 
     fn delete_existings_by_email(conn: &mut Connection, email: &str) -> Result<usize> {
         let existing_signups = email_signups::table.filter(email_signups::email.eq(email));
-        diesel::delete(existing_signups)
-            .execute(conn)
-            .map_err(Error::from)
+        diesel::delete(existing_signups).execute(conn).map_err(Error::from)
     }
 
     fn expired(&self) -> bool {

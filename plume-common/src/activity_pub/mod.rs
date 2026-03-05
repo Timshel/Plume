@@ -33,8 +33,7 @@ pub mod sign;
 pub const CONTEXT_URL: &str = "https://www.w3.org/ns/activitystreams";
 pub const PUBLIC_VISIBILITY: &str = "https://www.w3.org/ns/activitystreams#Public";
 
-pub const AP_CONTENT_TYPE: &str =
-    r#"application/ld+json; profile="https://www.w3.org/ns/activitystreams""#;
+pub const AP_CONTENT_TYPE: &str = r#"application/ld+json; profile="https://www.w3.org/ns/activitystreams""#;
 
 pub fn ap_accept_header() -> Vec<&'static str> {
     vec![
@@ -81,18 +80,12 @@ impl<'r, O: serde::Serialize> Responder<'r, 'static> for ActivityStream<O> {
     fn respond_to(self, request: &Request<'_>) -> rocket::response::Result<'static> {
         let mut json = serde_json::to_value(&self.0).map_err(|_| Status::InternalServerError)?;
         json["@context"] = context();
-        match serde_json::to_string(&json){
-            Ok(as_string) => {
-                as_string.respond_to(request).map(|r| {
-                    Response::build_from(r)
-                        .raw_header("Content-Type", "application/activity+json")
-                        .finalize()
-                })
-            },
-            Err(_) => Err(Status::InternalServerError)
+        match serde_json::to_string(&json) {
+            Ok(as_string) => as_string
+                .respond_to(request)
+                .map(|r| Response::build_from(r).raw_header("Content-Type", "application/activity+json").finalize()),
+            Err(_) => Err(Status::InternalServerError),
         }
-
-
     }
 }
 
@@ -112,20 +105,18 @@ impl<'r> FromRequest<'r> for ApRequest {
                     .split(',')
                     .filter_map(|ct| {
                         match ct.trim() {
-                        // bool for Forward: true if found a valid Content-Type for Plume first (HTML), false otherwise
-                        "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""
-                        | "application/ld+json;profile=\"https://www.w3.org/ns/activitystreams\""
-                        | "application/activity+json"
-                        | "application/ld+json" => Some(Outcome::Success(ApRequest)),
-                        "text/html" => Some(Outcome::Forward(Status::Ok)),
-                        _ => None,
-                    }
-                    })
-                    .reduce(|acc, elt| {
-                        match (acc, elt){
-                            (a @ Outcome::Success(_), _) => a,
-                            (_, elt) => elt,
+                            // bool for Forward: true if found a valid Content-Type for Plume first (HTML), false otherwise
+                            "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""
+                            | "application/ld+json;profile=\"https://www.w3.org/ns/activitystreams\""
+                            | "application/activity+json"
+                            | "application/ld+json" => Some(Outcome::Success(ApRequest)),
+                            "text/html" => Some(Outcome::Forward(Status::Ok)),
+                            _ => None,
                         }
+                    })
+                    .reduce(|acc, elt| match (acc, elt) {
+                        (a @ Outcome::Success(_), _) => a,
+                        (_, elt) => elt,
                     })
                     .unwrap_or(Outcome::Forward(Status::BadRequest))
             })
@@ -142,18 +133,13 @@ where
     let boxes = to
         .into_iter()
         .filter(|u| !u.is_local())
-        .map(|u| {
-            u.get_shared_inbox_url()
-                .unwrap_or_else(|| u.get_inbox_url())
-        })
+        .map(|u| u.get_shared_inbox_url().unwrap_or_else(|| u.get_inbox_url()))
         .collect::<Vec<String>>()
         .unique();
 
     let mut act = serde_json::to_value(act).expect("activity_pub::broadcast: serialization error");
     act["@context"] = context();
-    let signed = act
-        .sign(sender)
-        .expect("activity_pub::broadcast: signature error");
+    let signed = act.sign(sender).expect("activity_pub::broadcast: signature error");
 
     let client = if let Some(proxy) = proxy {
         ClientBuilder::new().proxy(proxy)
@@ -335,7 +321,11 @@ impl Hashtag {
         let href = inner.remove("href")?;
         let name = inner.remove("name")?;
 
-        Ok(Self { href, name, inner })
+        Ok(Self {
+            href,
+            name,
+            inner,
+        })
     }
 
     pub fn retracting(self) -> Result<Object<HashtagType>, serde_json::Error> {
@@ -516,9 +506,7 @@ pub trait ToAsUri {
 
 impl ToAsUri for OneOrMany<AnyBase> {
     fn to_as_uri(&self) -> Option<String> {
-        self.iter()
-            .next()
-            .and_then(|prop| prop.as_xsd_any_uri().map(|uri| uri.to_string()))
+        self.iter().next().and_then(|prop| prop.as_xsd_any_uri().map(|uri| uri.to_string()))
     }
 }
 
@@ -682,18 +670,10 @@ mod tests {
             }
         );
         expected.set_icon(Image::new().into_any_base().unwrap());
-        expected.set_id(
-            "https://plume01.localhost/~/Plume01%20Blog%202/"
-                .parse()
-                .unwrap(),
-        );
+        expected.set_id("https://plume01.localhost/~/Plume01%20Blog%202/".parse().unwrap());
         expected.set_image(Image::new().into_any_base().unwrap());
         expected.set_name("Plume01 Blog 2");
-        expected.set_outbox(
-            "https://plume01.localhost/~/Plume01%20Blog%202/outbox"
-                .parse()
-                .unwrap(),
-        );
+        expected.set_outbox("https://plume01.localhost/~/Plume01%20Blog%202/outbox".parse().unwrap());
         expected.set_preferred_username("Plume01 Blog 2");
         expected.set_summary("");
 

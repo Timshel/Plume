@@ -28,23 +28,13 @@ impl Tag {
     pub fn to_activity(&self) -> Result<Hashtag> {
         let mut ht = Hashtag::new();
         ht.set_href(
-            ap_url(&format!(
-                "{}/tag/{}",
-                Instance::get_local()?.public_domain,
-                self.tag
-            ))
-            .parse::<IriString>()?,
+            ap_url(&format!("{}/tag/{}", Instance::get_local()?.public_domain, self.tag)).parse::<IriString>()?,
         );
         ht.set_name(self.tag.clone());
         Ok(ht)
     }
 
-    pub fn from_activity(
-        conn: &mut Connection,
-        tag: &Hashtag,
-        post: i32,
-        is_hashtag: bool,
-    ) -> Result<Tag> {
+    pub fn from_activity(conn: &mut Connection, tag: &Hashtag, post: i32, is_hashtag: bool) -> Result<Tag> {
         Tag::insert(
             conn,
             NewTag {
@@ -57,23 +47,13 @@ impl Tag {
 
     pub fn build_activity(tag: String) -> Result<Hashtag> {
         let mut ht = Hashtag::new();
-        ht.set_href(
-            ap_url(&format!(
-                "{}/tag/{}",
-                Instance::get_local()?.public_domain,
-                tag
-            ))
-            .parse::<IriString>()?,
-        );
+        ht.set_href(ap_url(&format!("{}/tag/{}", Instance::get_local()?.public_domain, tag)).parse::<IriString>()?);
         ht.set_name(tag);
         Ok(ht)
     }
 
     pub fn delete(&self, conn: &mut Connection) -> Result<()> {
-        diesel::delete(self)
-            .execute(conn)
-            .map(|_| ())
-            .map_err(Error::from)
+        diesel::delete(self).execute(conn).map(|_| ()).map_err(Error::from)
     }
 }
 

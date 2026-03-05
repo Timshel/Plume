@@ -1,6 +1,5 @@
 use crate::{
-    comments::Comment, notifications::*, posts::Post, schema::mentions, users::User, Connection,
-    Error, Result,
+    comments::Comment, notifications::*, posts::Post, schema::mentions, users::User, Connection, Error, Result,
 };
 use activitystreams::{
     base::BaseExt,
@@ -38,24 +37,16 @@ impl Mention {
     }
 
     pub fn get_post(&self, conn: &mut Connection) -> Result<Post> {
-        self.post_id
-            .ok_or(Error::NotFound)
-            .and_then(|id| Post::get(conn, id))
+        self.post_id.ok_or(Error::NotFound).and_then(|id| Post::get(conn, id))
     }
 
     pub fn get_comment(&self, conn: &mut Connection) -> Result<Comment> {
-        self.comment_id
-            .ok_or(Error::NotFound)
-            .and_then(|id| Comment::get(conn, id))
+        self.comment_id.ok_or(Error::NotFound).and_then(|id| Comment::get(conn, id))
     }
 
     pub fn get_user(&self, conn: &mut Connection) -> Result<User> {
         match self.get_post(conn) {
-            Ok(p) => Ok(p
-                .get_authors(conn)?
-                .into_iter()
-                .next()
-                .ok_or(Error::NotFound)?),
+            Ok(p) => Ok(p.get_authors(conn)?.into_iter().next().ok_or(Error::NotFound)?),
             Err(_) => self.get_comment(conn).and_then(|c| c.get_author(conn)),
         }
     }
@@ -124,10 +115,7 @@ impl Mention {
         if let Ok(n) = Notification::find(conn, notification_kind::MENTION, self.id) {
             n.delete(conn)?;
         }
-        diesel::delete(self)
-            .execute(conn)
-            .map(|_| ())
-            .map_err(Error::from)
+        diesel::delete(self).execute(conn).map(|_| ()).map_err(Error::from)
     }
 
     fn notify(&self, conn: &mut Connection) -> Result<()> {

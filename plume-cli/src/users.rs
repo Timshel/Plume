@@ -83,22 +83,18 @@ pub fn command() -> Command {
 }
 
 pub fn run(mut args: ArgMatches, conn: &mut Connection) {
-    args.remove_subcommand().map(|(c, a)| {
-        match c.as_str() {
+    args.remove_subcommand()
+        .map(|(c, a)| match c.as_str() {
             "new" => new(a, conn),
             "reset-password" => reset_password(a, conn),
             _ => command().print_help().unwrap(),
-        }
-    }).unwrap_or_else(|| println!("Unknown subcommand") )
+        })
+        .unwrap_or_else(|| println!("Unknown subcommand"))
 }
 
 fn new(mut args: ArgMatches, conn: &mut Connection) {
-    let username = args
-        .remove_one::<String>("name")
-        .unwrap_or_else(|| super::ask_for("Username"));
-    let display_name = args
-        .remove_one::<String>("display-name")
-        .unwrap_or_else(|| super::ask_for("Display name"));
+    let username = args.remove_one::<String>("name").unwrap_or_else(|| super::ask_for("Username"));
+    let display_name = args.remove_one::<String>("display-name").unwrap_or_else(|| super::ask_for("Display name"));
 
     let admin = args.contains_id("admin");
     let moderator = args.contains_id("moderator");
@@ -111,16 +107,12 @@ fn new(mut args: ArgMatches, conn: &mut Connection) {
     };
 
     let bio = args.remove_one::<String>("biography").unwrap_or(String::new());
-    let email = args
-        .remove_one::<String>("email")
-        .unwrap_or_else(|| super::ask_for("Email address"));
-    let password = args
-        .remove_one::<String>("password")
-        .unwrap_or_else(|| {
-            print!("Password: ");
-            io::stdout().flush().expect("Couldn't flush STDOUT");
-            rpassword::read_password().expect("Couldn't read your password.")
-        });
+    let email = args.remove_one::<String>("email").unwrap_or_else(|| super::ask_for("Email address"));
+    let password = args.remove_one::<String>("password").unwrap_or_else(|| {
+        print!("Password: ");
+        io::stdout().flush().expect("Couldn't flush STDOUT");
+        rpassword::read_password().expect("Couldn't read your password.")
+    });
 
     NewUser::new_local(
         conn,
@@ -135,24 +127,13 @@ fn new(mut args: ArgMatches, conn: &mut Connection) {
 }
 
 fn reset_password(mut args: ArgMatches, conn: &mut Connection) {
-    let username = args
-        .remove_one::<String>("name")
-        .unwrap_or_else(|| super::ask_for("Username"));
-    let user = User::find_by_name(
-        conn,
-        &username,
-        Instance::get_local()
-            .expect("Failed to get local instance")
-            .id,
-    )
-    .expect("Failed to get user");
-    let password = args
-        .remove_one::<String>("password")
-        .unwrap_or_else(|| {
-            print!("Password: ");
-            io::stdout().flush().expect("Couldn't flush STDOUT");
-            rpassword::read_password().expect("Couldn't read your password.")
-        });
-    user.reset_password(conn, &password)
-        .expect("Failed to reset password");
+    let username = args.remove_one::<String>("name").unwrap_or_else(|| super::ask_for("Username"));
+    let user = User::find_by_name(conn, &username, Instance::get_local().expect("Failed to get local instance").id)
+        .expect("Failed to get user");
+    let password = args.remove_one::<String>("password").unwrap_or_else(|| {
+        print!("Password: ");
+        io::stdout().flush().expect("Couldn't flush STDOUT");
+        rpassword::read_password().expect("Couldn't read your password.")
+    });
+    user.reset_password(conn, &password).expect("Failed to reset password");
 }

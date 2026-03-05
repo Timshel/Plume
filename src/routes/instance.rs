@@ -1,9 +1,9 @@
+use rocket::serde::json::Json;
 use rocket::{
-    FromForm,
     form::Form,
     response::{status, Flash, Redirect},
+    FromForm,
 };
-use rocket::serde::json::Json;
 use rocket_i18n::I18n;
 use scheduled_thread_pool::ScheduledThreadPool;
 use std::str::FromStr;
@@ -97,18 +97,10 @@ pub fn update_settings(
     rockets: PlumeRocket,
 ) -> RespondOrRedirect {
     if let Err(e) = form.validate() {
-        let local_inst =
-            Instance::get_local().expect("instance::update_settings: local instance error");
-        render!(instance::admin_html(
-            &(&mut conn, &rockets).to_context(),
-            local_inst,
-            form.clone(),
-            e
-        ))
-        .into()
+        let local_inst = Instance::get_local().expect("instance::update_settings: local instance error");
+        render!(instance::admin_html(&(&mut conn, &rockets).to_context(), local_inst, form.clone(), e)).into()
     } else {
-        let instance =
-            Instance::get_local().expect("instance::update_settings: local instance error");
+        let instance = Instance::get_local().expect("instance::update_settings: local instance error");
         instance
             .update(
                 &mut conn,
@@ -119,11 +111,8 @@ pub fn update_settings(
                 form.default_license.clone(),
             )
             .expect("instance::update_settings: save error");
-        Flash::success(
-            Redirect::to(uri!(admin)),
-            i18n!(rockets.intl.catalog, "Instance settings have been saved."),
-        )
-        .into()
+        Flash::success(Redirect::to(uri!(admin)), i18n!(rockets.intl.catalog, "Instance settings have been saved."))
+            .into()
     }
 }
 
@@ -147,12 +136,7 @@ pub fn admin_instances(
 }
 
 #[post("/admin/instances/<id>/block")]
-pub fn toggle_block(
-    _mod: Moderator,
-    mut conn: DbConn,
-    id: i32,
-    intl: I18n,
-) -> Result<Flash<Redirect>, ErrorPage> {
+pub fn toggle_block(_mod: Moderator, mut conn: DbConn, id: i32, intl: I18n) -> Result<Flash<Redirect>, ErrorPage> {
     let inst = Instance::get(&mut conn, id)?;
     let message = if inst.blocked {
         i18n!(intl.catalog, "{} has been unblocked."; &inst.name)
@@ -161,10 +145,7 @@ pub fn toggle_block(
     };
 
     inst.toggle_block(&mut conn)?;
-    Ok(Flash::success(
-        Redirect::to(uri!(admin_instances(page = _))),
-        message,
-    ))
+    Ok(Flash::success(Redirect::to(uri!(admin_instances(page = _))), message))
 }
 
 #[get("/admin/users?<page>", rank = 2)]
@@ -185,13 +166,7 @@ pub fn admin_users(
         })
         .collect();
 
-    Ok(render!(instance::users_html(
-        &(&mut conn, &rockets).to_context(),
-        users,
-        None,
-        page.0,
-        page_total
-    )))
+    Ok(render!(instance::users_html(&(&mut conn, &rockets).to_context(), users, None, page.0, page_total)))
 }
 #[get("/admin/users?<user>&<page>", rank = 1)]
 pub fn admin_search_users(
@@ -208,20 +183,15 @@ pub fn admin_search_users(
         User::get_local_page(&mut conn, page.limits())?
     } else {
         User::search_local_by_name(&mut conn, user, page.limits())?
-    }).into_iter()
-        .map(|u| {
-            let avatar_url = u.avatar_url(&mut conn);
-            (u, avatar_url)
-        })
-        .collect();
+    })
+    .into_iter()
+    .map(|u| {
+        let avatar_url = u.avatar_url(&mut conn);
+        (u, avatar_url)
+    })
+    .collect();
 
-    Ok(render!(instance::users_html(
-        &(&mut conn, &rockets).to_context(),
-        users,
-        Some(user),
-        page.0,
-        page_total
-    )))
+    Ok(render!(instance::users_html(&(&mut conn, &rockets).to_context(), users, Some(user), page.0, page_total)))
 }
 
 #[derive(FromForm)]
@@ -274,12 +244,7 @@ pub fn admin_email_blocklist(
     let page_total = Page::total(User::count_local(&mut conn)? as i32);
     let block_page = BlocklistedEmail::page(&mut conn, page.limits())?;
 
-    Ok(render!(instance::emailblocklist_html(
-        &(&mut conn, &rockets).to_context(),
-        block_page,
-        page.0,
-        page_total
-    )))
+    Ok(render!(instance::emailblocklist_html(&(&mut conn, &rockets).to_context(), block_page, page.0, page_total)))
 }
 
 /// A structure to handle forms that are a list of items on which actions are applied.
@@ -335,10 +300,7 @@ pub async fn edit_users(
             UserActions::Admin | UserActions::RevokeAdmin => {
                 return Ok(Flash::error(
                     Redirect::to(uri!(admin_users(page = _))),
-                    i18n!(
-                        rockets.intl.catalog,
-                        "You are not allowed to take this action."
-                    ),
+                    i18n!(rockets.intl.catalog, "You are not allowed to take this action."),
                 ))
             }
             _ => {}
@@ -369,19 +331,13 @@ pub async fn edit_users(
         }
     }
 
-    Ok(Flash::success(
-        Redirect::to(uri!(admin_users(page = _))),
-        i18n!(rockets.intl.catalog, "Done."),
-    ))
+    Ok(Flash::success(Redirect::to(uri!(admin_users(page = _))), i18n!(rockets.intl.catalog, "Done.")))
 }
 
 async fn ban(id: i32, conn: &mut Connection, worker: &ScheduledThreadPool) -> Result<(), ErrorPage> {
     let u = User::get(conn, id)?;
     u.delete(conn).await?;
-    if Instance::get_local()
-        .map(|i| u.instance_id == i.id)
-        .unwrap_or(false)
-    {
+    if Instance::get_local().map(|i| u.instance_id == i.id).unwrap_or(false) {
         BlocklistedEmail::insert(
             conn,
             NewBlocklistedEmail {
@@ -416,8 +372,8 @@ pub async fn interact(mut conn: DbConn, user: Option<User>, target: String) -> O
     }
 
     if let Ok(post) = Post::from_id(&mut conn, &target, None, CONFIG.proxy()).await {
-        return Some(Redirect::to(uri!(
-            super::posts::details(blog = post.get_blog(&mut conn).expect("Can't retrieve blog").fqn,
+        return Some(Redirect::to(uri!(super::posts::details(
+            blog = post.get_blog(&mut conn).expect("Can't retrieve blog").fqn,
             slug = &post.slug,
             responding_to = _
         ))));
@@ -426,9 +382,8 @@ pub async fn interact(mut conn: DbConn, user: Option<User>, target: String) -> O
     if let Ok(comment) = Comment::from_id(&mut conn, &target, None, CONFIG.proxy()).await {
         if comment.can_see(&mut conn, user.as_ref()) {
             let post = comment.get_post(&mut conn).expect("Can't retrieve post");
-            return Some(Redirect::to(uri!(
-                super::posts::details(blog =
-                    post.get_blog(&mut conn).expect("Can't retrieve blog").fqn,
+            return Some(Redirect::to(uri!(super::posts::details(
+                blog = post.get_blog(&mut conn).expect("Can't retrieve blog").fqn,
                 slug = &post.slug,
                 responding_to = Some(comment.id)
             ))));

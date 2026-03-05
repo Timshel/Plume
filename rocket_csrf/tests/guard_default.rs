@@ -13,9 +13,7 @@ fn client() -> rocket::local::blocking::Client {
 }
 
 fn rocket() -> rocket::Rocket<rocket::Build> {
-    rocket::build()
-        .attach(rocket_csrf::Fairing::default())
-        .mount("/", routes![index])
+    rocket::build().attach(rocket_csrf::Fairing::default()).mount("/", routes![index])
 }
 
 #[get("/")]

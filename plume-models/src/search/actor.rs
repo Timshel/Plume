@@ -37,30 +37,22 @@ impl Actor for SearchActor {
         sleep(Duration::from_millis(500));
 
         match msg {
-            PostPublished(post) => {
-                match self.conn.get() {
-                    Ok(mut conn) => {
-                        self.searcher
-                            .add_document(&mut conn, &post)
-                            .unwrap_or_else(|e| error!("{:?}", e));
-                    }
-                    _ => {
-                        error!("Failed to get database connection");
-                    }
+            PostPublished(post) => match self.conn.get() {
+                Ok(mut conn) => {
+                    self.searcher.add_document(&mut conn, &post).unwrap_or_else(|e| error!("{:?}", e));
                 }
-            }
-            PostUpdated(post) => {
-                match self.conn.get() {
-                    Ok(mut conn) => {
-                        self.searcher
-                            .update_document(&mut conn, &post)
-                            .unwrap_or_else(|e| error!("{:?}", e));
-                    }
-                    _ => {
-                        error!("Failed to get database connection");
-                    }
+                _ => {
+                    error!("Failed to get database connection");
                 }
-            }
+            },
+            PostUpdated(post) => match self.conn.get() {
+                Ok(mut conn) => {
+                    self.searcher.update_document(&mut conn, &post).unwrap_or_else(|e| error!("{:?}", e));
+                }
+                _ => {
+                    error!("Failed to get database connection");
+                }
+            },
             PostDeleted(post) => self.searcher.delete_document(&post),
         }
     }
@@ -68,7 +60,10 @@ impl Actor for SearchActor {
 
 impl ActorFactoryArgs<(Arc<Searcher>, DbPool)> for SearchActor {
     fn create_args((searcher, conn): (Arc<Searcher>, DbPool)) -> Self {
-        Self { searcher, conn }
+        Self {
+            searcher,
+            conn,
+        }
     }
 }
 
@@ -99,10 +94,7 @@ mod tests {
         // Need to commit so that searcher on another thread retrieve records.
         // So, build DbPool instead of using DB_POOL for testing.
         let manager = ConnectionManager::<Conn>::new(CONFIG.database_url.as_str());
-        let db_pool = DbPool::builder()
-            .connection_customizer(Box::new(PragmaForeignKey))
-            .build(manager)
-            .unwrap();
+        let db_pool = DbPool::builder().connection_customizer(Box::new(PragmaForeignKey)).build(manager).unwrap();
 
         let searcher = Arc::new(get_searcher(&CONFIG.search_tokenizers));
         SearchActor::init(searcher.clone(), db_pool.clone());
@@ -142,10 +134,7 @@ mod tests {
         // Wait for searcher on another thread add document asynchronously
         sleep(Duration::from_millis(700));
         searcher.commit();
-        assert_eq!(
-            searcher.search_document(&conn, Query::from_str(&title).unwrap(), (0, 1))[0].id,
-            post_id
-        );
+        assert_eq!(searcher.search_document(&conn, Query::from_str(&title).unwrap(), (0, 1))[0].id, post_id);
     }
 
     fn fill_database(conn: &Conn) -> (Instance, User, Blog) {

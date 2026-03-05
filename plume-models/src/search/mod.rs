@@ -156,29 +156,19 @@ pub(crate) mod tests {
             .unwrap();
             searcher.add_document(conn, &post).unwrap();
             searcher.commit();
-            assert_eq!(
-                searcher.search_document(conn, Query::from_str(&title).unwrap(), (0, 1))[0].id,
-                post.id
-            );
+            assert_eq!(searcher.search_document(conn, Query::from_str(&title).unwrap(), (0, 1))[0].id, post.id);
 
             let newtitle = random_hex()[..8].to_owned();
             post.title = newtitle.clone();
             post.update(conn).unwrap();
             searcher.update_document(conn, &post).unwrap();
             searcher.commit();
-            assert_eq!(
-                searcher.search_document(conn, Query::from_str(&newtitle).unwrap(), (0, 1))[0].id,
-                post.id
-            );
-            assert!(searcher
-                .search_document(conn, Query::from_str(&title).unwrap(), (0, 1))
-                .is_empty());
+            assert_eq!(searcher.search_document(conn, Query::from_str(&newtitle).unwrap(), (0, 1))[0].id, post.id);
+            assert!(searcher.search_document(conn, Query::from_str(&title).unwrap(), (0, 1)).is_empty());
 
             searcher.delete_document(&post);
             searcher.commit();
-            assert!(searcher
-                .search_document(conn, Query::from_str(&newtitle).unwrap(), (0, 1))
-                .is_empty());
+            assert!(searcher.search_document(conn, Query::from_str(&newtitle).unwrap(), (0, 1)).is_empty());
             Ok(())
         });
     }
@@ -219,23 +209,12 @@ pub(crate) mod tests {
             searcher.commit();
 
             assert_eq!(
-                searcher.search_document(conn, Query::from_str("ブログエンジン").unwrap(), (0, 1))
-                    [0]
-                .id,
+                searcher.search_document(conn, Query::from_str("ブログエンジン").unwrap(), (0, 1))[0].id,
                 post.id
             );
-            assert_eq!(
-                searcher.search_document(conn, Query::from_str("Plume").unwrap(), (0, 1))[0].id,
-                post.id
-            );
-            assert_eq!(
-                searcher.search_document(conn, Query::from_str("です").unwrap(), (0, 1))[0].id,
-                post.id
-            );
-            assert_eq!(
-                searcher.search_document(conn, Query::from_str("。").unwrap(), (0, 1))[0].id,
-                post.id
-            );
+            assert_eq!(searcher.search_document(conn, Query::from_str("Plume").unwrap(), (0, 1))[0].id, post.id);
+            assert_eq!(searcher.search_document(conn, Query::from_str("です").unwrap(), (0, 1))[0].id, post.id);
+            assert_eq!(searcher.search_document(conn, Query::from_str("。").unwrap(), (0, 1))[0].id, post.id);
 
             Ok(())
         });

@@ -1,6 +1,6 @@
 use crate::{
-    instance::*, medias::Media, posts::Post, safe_string::SafeString, schema::blogs, users::User,
-    Connection, Error, PlumeRocket, Result, CONFIG, ITEMS_PER_PAGE,
+    instance::*, medias::Media, posts::Post, safe_string::SafeString, schema::blogs, users::User, Connection, Error,
+    PlumeRocket, Result, CONFIG, ITEMS_PER_PAGE,
 };
 use activitystreams::{
     actor::{ApActor, ApActorExt, AsApActor, Group},
@@ -21,8 +21,8 @@ use openssl::{
 use plume_common::{
     activity_pub::{
         inbox::{AsActor, FromId},
-        sign, ActivityStream, ApSignature, CustomGroup, Id, IntoId, PublicKey, Source,
-        SourceProperty, ToAsString, ToAsUri,
+        sign, ActivityStream, ApSignature, CustomGroup, Id, IntoId, PublicKey, Source, SourceProperty, ToAsString,
+        ToAsUri,
     },
     utils::iri_percent_encode_seg,
 };
@@ -89,11 +89,7 @@ impl Blog {
             if instance.local {
                 inserted.fqn = iri_percent_encode_seg(&inserted.actor_id);
             } else {
-                inserted.fqn = format!(
-                    "{}@{}",
-                    iri_percent_encode_seg(&inserted.actor_id),
-                    instance.public_domain
-                );
+                inserted.fqn = format!("{}@{}", iri_percent_encode_seg(&inserted.actor_id), instance.public_domain);
             }
         }
 
@@ -124,40 +120,24 @@ impl Blog {
     pub fn list_authors(&self, conn: &mut Connection) -> Result<Vec<User>> {
         use crate::schema::blog_authors;
         use crate::schema::users;
-        let authors_ids = blog_authors::table
-            .filter(blog_authors::blog_id.eq(self.id))
-            .select(blog_authors::author_id);
-        users::table
-            .filter(users::id.eq_any(authors_ids))
-            .load::<User>(conn)
-            .map_err(Error::from)
+        let authors_ids = blog_authors::table.filter(blog_authors::blog_id.eq(self.id)).select(blog_authors::author_id);
+        users::table.filter(users::id.eq_any(authors_ids)).load::<User>(conn).map_err(Error::from)
     }
 
     pub fn count_authors(&self, conn: &mut Connection) -> Result<i64> {
         use crate::schema::blog_authors;
-        blog_authors::table
-            .filter(blog_authors::blog_id.eq(self.id))
-            .count()
-            .get_result(conn)
-            .map_err(Error::from)
+        blog_authors::table.filter(blog_authors::blog_id.eq(self.id)).count().get_result(conn).map_err(Error::from)
     }
 
     pub fn find_for_author(conn: &mut Connection, author: &User) -> Result<Vec<Blog>> {
         use crate::schema::blog_authors;
-        let author_ids = blog_authors::table
-            .filter(blog_authors::author_id.eq(author.id))
-            .select(blog_authors::blog_id);
-        blogs::table
-            .filter(blogs::id.eq_any(author_ids))
-            .load::<Blog>(conn)
-            .map_err(Error::from)
+        let author_ids =
+            blog_authors::table.filter(blog_authors::author_id.eq(author.id)).select(blog_authors::blog_id);
+        blogs::table.filter(blogs::id.eq_any(author_ids)).load::<Blog>(conn).map_err(Error::from)
     }
 
     pub async fn find_by_fqn(conn: &mut Connection, fqn: &str) -> Result<Blog> {
-        let from_db = blogs::table
-            .filter(blogs::fqn.eq(fqn))
-            .first(conn)
-            .optional()?;
+        let from_db = blogs::table.filter(blogs::fqn.eq(fqn)).first(conn).optional()?;
         if let Some(from_db) = from_db {
             Ok(from_db)
         } else {
@@ -166,23 +146,17 @@ impl Blog {
     }
 
     async fn fetch_from_webfinger(conn: &mut Connection, acct: &str) -> Result<Blog> {
-        let rwp = resolve_with_prefix(Prefix::Group, acct.to_owned(), true).await?
+        let rwp = resolve_with_prefix(Prefix::Group, acct.to_owned(), true)
+            .await?
             .links
             .into_iter()
             .find(|l| l.mime_type == Some(String::from("application/activity+json")))
             .ok_or(Error::Webfinger);
 
         match rwp {
-            Ok(l) => {
-                Blog::from_id(
-                    conn,
-                    &l.href.ok_or(Error::MissingApProperty)?,
-                    None,
-                    CONFIG.proxy(),
-                )
+            Ok(l) => Blog::from_id(conn, &l.href.ok_or(Error::MissingApProperty)?, None, CONFIG.proxy())
                 .await
-                .map_err(|(_, e)| e)
-            },
+                .map_err(|(_, e)| e),
             Err(err) => Err(err),
         }
     }
@@ -207,11 +181,7 @@ impl Blog {
                     .url()
                     .and_then(|url| url.parse::<IriString>().map_err(|_| Error::Url))
                     .map(|url| icon.set_url(url));
-                icon.set_attributed_to(
-                    User::get(conn, m.owner_id)?
-                        .into_id()
-                        .parse::<IriString>()?,
-                );
+                icon.set_attributed_to(User::get(conn, m.owner_id)?.into_id().parse::<IriString>()?);
                 Ok(())
             })
         });
@@ -224,11 +194,7 @@ impl Blog {
                     .url()
                     .and_then(|url| url.parse::<IriString>().map_err(|_| Error::Url))
                     .map(|url| banner.set_url(url));
-                banner.set_attributed_to(
-                    User::get(conn, m.owner_id)?
-                        .into_id()
-                        .parse::<IriString>()?,
-                );
+                banner.set_attributed_to(User::get(conn, m.owner_id)?.into_id().parse::<IriString>()?);
                 Ok(())
             })
         });
@@ -253,10 +219,7 @@ impl Blog {
     }
     pub fn outbox_collection(&self, conn: &mut Connection) -> Result<OrderedCollection> {
         let acts = self.get_activities(conn);
-        let acts = acts
-            .iter()
-            .filter_map(|value| AnyBase::from_arbitrary_json(value).ok())
-            .collect::<Vec<AnyBase>>();
+        let acts = acts.iter().filter_map(|value| AnyBase::from_arbitrary_json(value).ok()).collect::<Vec<AnyBase>>();
         let n_acts = acts.len();
         let mut coll = OrderedCollection::new();
         coll.set_many_items(acts);
@@ -277,8 +240,7 @@ impl Blog {
         conn: &mut Connection,
         (min, max): (i32, i32),
     ) -> Result<ActivityStream<OrderedCollectionPage>> {
-        self.outbox_collection_page(conn, (min, max))
-            .map(ActivityStream::new)
+        self.outbox_collection_page(conn, (min, max)).map(ActivityStream::new)
     }
     pub fn outbox_collection_page(
         &self,
@@ -289,48 +251,26 @@ impl Blog {
         let acts = self.get_activity_page(conn, (min, max));
         //This still doesn't do anything because the outbox
         //doesn't do anything yet
-        coll.set_next(
-            format!("{}?page={}", &self.outbox_url, min / ITEMS_PER_PAGE + 1)
-                .parse::<IriString>()?,
-        );
-        coll.set_prev(
-            format!("{}?page={}", &self.outbox_url, min / ITEMS_PER_PAGE - 1)
-                .parse::<IriString>()?,
-        );
-        coll.set_many_items(
-            acts.iter()
-                .filter_map(|value| AnyBase::from_arbitrary_json(value).ok()),
-        );
+        coll.set_next(format!("{}?page={}", &self.outbox_url, min / ITEMS_PER_PAGE + 1).parse::<IriString>()?);
+        coll.set_prev(format!("{}?page={}", &self.outbox_url, min / ITEMS_PER_PAGE - 1).parse::<IriString>()?);
+        coll.set_many_items(acts.iter().filter_map(|value| AnyBase::from_arbitrary_json(value).ok()));
         Ok(coll)
     }
     fn get_activities(&self, _conn: &mut Connection) -> Vec<serde_json::Value> {
         vec![]
     }
-    fn get_activity_page(
-        &self,
-        _conn: &mut Connection,
-        (_min, _max): (i32, i32),
-    ) -> Vec<serde_json::Value> {
+    fn get_activity_page(&self, _conn: &mut Connection, (_min, _max): (i32, i32)) -> Vec<serde_json::Value> {
         vec![]
     }
 
     pub fn get_keypair(&self) -> Result<PKey<Private>> {
-        PKey::from_rsa(Rsa::private_key_from_pem(
-            self.private_key
-                .clone()
-                .ok_or(Error::MissingApProperty)?
-                .as_ref(),
-        )?)
-        .map_err(Error::from)
+        PKey::from_rsa(Rsa::private_key_from_pem(self.private_key.clone().ok_or(Error::MissingApProperty)?.as_ref())?)
+            .map_err(Error::from)
     }
 
     pub fn webfinger(&self, conn: &mut Connection) -> Result<Webfinger> {
         Ok(Webfinger {
-            subject: format!(
-                "acct:{}@{}",
-                self.actor_id,
-                self.get_instance(conn)?.public_domain
-            ),
+            subject: format!("acct:{}@{}", self.actor_id, self.get_instance(conn)?.public_domain),
             aliases: vec![self.ap_url.clone()],
             links: vec![
                 Link {
@@ -342,11 +282,7 @@ impl Blog {
                 Link {
                     rel: String::from("http://schemas.google.com/g/2010#updates-from"),
                     mime_type: Some(String::from("application/atom+xml")),
-                    href: Some(self.get_instance(conn)?.compute_box(
-                        BLOG_PREFIX,
-                        &self.actor_id,
-                        "feed.atom",
-                    )),
+                    href: Some(self.get_instance(conn)?.compute_box(BLOG_PREFIX, &self.actor_id, "feed.atom")),
                     template: None,
                 },
                 Link {
@@ -366,19 +302,14 @@ impl Blog {
     }
 
     pub fn banner_url(&self, conn: &mut Connection) -> Option<String> {
-        self.banner_id
-            .and_then(|i| Media::get(conn, i).ok())
-            .and_then(|c| c.url().ok())
+        self.banner_id.and_then(|i| Media::get(conn, i).ok()).and_then(|c| c.url().ok())
     }
 
     pub fn delete(&self, conn: &mut Connection) -> Result<()> {
         for post in Post::get_for_blog(conn, self)? {
             post.delete(conn)?;
         }
-        diesel::delete(self)
-            .execute(conn)
-            .map(|_| ())
-            .map_err(Error::from)
+        diesel::delete(self).execute(conn).map(|_| ()).map_err(Error::from)
     }
 }
 
@@ -399,19 +330,12 @@ impl FromId<Connection> for Blog {
     async fn from_activity(conn: &mut Connection, acct: CustomGroup) -> Result<Self> {
         let (name, outbox_url, inbox_url) = {
             let actor = acct.ap_actor_ref();
-            let name = actor
-                .preferred_username()
-                .ok_or(Error::MissingApProperty)?
-                .to_string();
+            let name = actor.preferred_username().ok_or(Error::MissingApProperty)?.to_string();
             if name.contains(&['<', '>', '&', '@', '\'', '"', ' ', '\t'][..]) {
                 tracing::error!("preferredUsername includes invalid character(s): {}", &name);
                 return Err(Error::InvalidValue);
             }
-            (
-                name,
-                actor.outbox()?.ok_or(Error::MissingApProperty)?.to_string(),
-                actor.inbox()?.to_string(),
-            )
+            (name, actor.outbox()?.ok_or(Error::MissingApProperty)?.to_string(), actor.inbox()?.to_string())
         };
 
         let mut new_blog = NewBlog {
@@ -425,51 +349,40 @@ impl FromId<Connection> for Blog {
         };
 
         let object = ApObject::new(acct.inner);
-        new_blog.title = object
-            .name()
-            .and_then(|name| name.to_as_string())
-            .unwrap_or(name);
-        new_blog.summary_html = SafeString::new(
-            &object
-                .summary()
-                .and_then(|summary| summary.to_as_string())
-                .unwrap_or_default(),
-        );
+        new_blog.title = object.name().and_then(|name| name.to_as_string()).unwrap_or(name);
+        new_blog.summary_html =
+            SafeString::new(&object.summary().and_then(|summary| summary.to_as_string()).unwrap_or_default());
 
-        let icon_id = match object.icon()
-                .and_then(|icons| icons.iter().next())
-                .and_then(|icon|  icon.to_owned().extend::<Image, ImageType>().ok().flatten() )
-                .and_then(|icon|  {
-                    let i = icon.url().and_then(|b| b.to_as_uri());
-                    let o = icon.attributed_to().and_then(|b| b.to_as_uri());
-                    i.zip(o)
-                }){
-            Some((icon, owner)) => {
-                User::from_id(conn, &owner, None, CONFIG.proxy())
-                    .await.ok()
-                    .and_then(|user| {
-                        Media::save_remote(conn, icon, &user).ok().map(|m| m.id)
-                    })
-            },
+        let icon_id = match object
+            .icon()
+            .and_then(|icons| icons.iter().next())
+            .and_then(|icon| icon.to_owned().extend::<Image, ImageType>().ok().flatten())
+            .and_then(|icon| {
+                let i = icon.url().and_then(|b| b.to_as_uri());
+                let o = icon.attributed_to().and_then(|b| b.to_as_uri());
+                i.zip(o)
+            }) {
+            Some((icon, owner)) => User::from_id(conn, &owner, None, CONFIG.proxy())
+                .await
+                .ok()
+                .and_then(|user| Media::save_remote(conn, icon, &user).ok().map(|m| m.id)),
             None => None,
         };
         new_blog.icon_id = icon_id;
 
-        let banner_id = match object.image()
-                .and_then(|banners| banners.iter().next())
-                .and_then(|banner|  banner.to_owned().extend::<Image, ImageType>().ok().flatten() )
-                .and_then(|banner|  {
-                    let b = banner.url().and_then(|b| b.to_as_uri());
-                    let o = banner.attributed_to().and_then(|b| b.to_as_uri());
-                    b.zip(o)
-                }){
-            Some((banner, owner)) => {
-                User::from_id(conn, &owner, None, CONFIG.proxy())
-                    .await.ok()
-                    .and_then(|user| {
-                        Media::save_remote(conn, banner, &user).ok().map(|m| m.id)
-                    })
-            },
+        let banner_id = match object
+            .image()
+            .and_then(|banners| banners.iter().next())
+            .and_then(|banner| banner.to_owned().extend::<Image, ImageType>().ok().flatten())
+            .and_then(|banner| {
+                let b = banner.url().and_then(|b| b.to_as_uri());
+                let o = banner.attributed_to().and_then(|b| b.to_as_uri());
+                b.zip(o)
+            }) {
+            Some((banner, owner)) => User::from_id(conn, &owner, None, CONFIG.proxy())
+                .await
+                .ok()
+                .and_then(|user| Media::save_remote(conn, banner, &user).ok().map(|m| m.id)),
             None => None,
         };
         new_blog.banner_id = banner_id;
@@ -480,11 +393,7 @@ impl FromId<Connection> for Blog {
         let id = any_base.id().ok_or(Error::MissingApProperty)?;
         new_blog.ap_url = id.to_string();
 
-        let inst = id
-            .authority_components()
-            .ok_or(Error::Url)?
-            .host()
-            .to_string();
+        let inst = id.authority_components().ok_or(Error::Url)?.host().to_string();
         let instance = Instance::find_by_domain(conn, &inst).or_else(|_| {
             Instance::insert(
                 conn,
@@ -522,9 +431,7 @@ impl AsActor<&PlumeRocket> for Blog {
     }
 
     fn is_local(&self) -> bool {
-        Instance::get_local()
-            .map(|i| self.instance_id == i.id)
-            .unwrap_or(false)
+        Instance::get_local().map(|i| self.instance_id == i.id).unwrap_or(false)
     }
 }
 
@@ -549,12 +456,7 @@ impl sign::Signer for Blog {
 }
 
 impl NewBlog {
-    pub fn new_local(
-        actor_id: String,
-        title: String,
-        summary: String,
-        instance_id: i32,
-    ) -> Result<NewBlog> {
+    pub fn new_local(actor_id: String, title: String, summary: String, instance_id: i32) -> Result<NewBlog> {
         let (pub_key, priv_key) = sign::gen_keypair();
         Ok(NewBlog {
             actor_id,
@@ -572,8 +474,8 @@ impl NewBlog {
 pub(crate) mod tests {
     use super::*;
     use crate::{
-        blog_authors::*, instance::tests as instance_tests, medias::NewMedia, tests::db,
-        users::tests as usersTests, Connection as Conn,
+        blog_authors::*, instance::tests as instance_tests, medias::NewMedia, tests::db, users::tests as usersTests,
+        Connection as Conn,
     };
     use assert_json_diff::assert_json_eq;
     use diesel::Connection;
@@ -711,10 +613,7 @@ pub(crate) mod tests {
             )
             .unwrap();
 
-            assert_eq!(
-                blog.get_instance(conn).unwrap().id,
-                Instance::get_local().unwrap().id
-            );
+            assert_eq!(blog.get_instance(conn).unwrap().id, Instance::get_local().unwrap().id);
             // TODO add tests for remote instance
             Ok(())
         })
@@ -780,43 +679,15 @@ pub(crate) mod tests {
             )
             .unwrap();
 
-            assert!(blog[0]
-                .list_authors(conn)
-                .unwrap()
-                .iter()
-                .any(|a| a.id == user[0].id));
-            assert!(blog[0]
-                .list_authors(conn)
-                .unwrap()
-                .iter()
-                .any(|a| a.id == user[1].id));
-            assert!(blog[1]
-                .list_authors(conn)
-                .unwrap()
-                .iter()
-                .any(|a| a.id == user[0].id));
-            assert!(!blog[1]
-                .list_authors(conn)
-                .unwrap()
-                .iter()
-                .any(|a| a.id == user[1].id));
+            assert!(blog[0].list_authors(conn).unwrap().iter().any(|a| a.id == user[0].id));
+            assert!(blog[0].list_authors(conn).unwrap().iter().any(|a| a.id == user[1].id));
+            assert!(blog[1].list_authors(conn).unwrap().iter().any(|a| a.id == user[0].id));
+            assert!(!blog[1].list_authors(conn).unwrap().iter().any(|a| a.id == user[1].id));
 
-            assert!(Blog::find_for_author(conn, &user[0])
-                .unwrap()
-                .iter()
-                .any(|b| b.id == blog[0].id));
-            assert!(Blog::find_for_author(conn, &user[1])
-                .unwrap()
-                .iter()
-                .any(|b| b.id == blog[0].id));
-            assert!(Blog::find_for_author(conn, &user[0])
-                .unwrap()
-                .iter()
-                .any(|b| b.id == blog[1].id));
-            assert!(!Blog::find_for_author(conn, &user[1])
-                .unwrap()
-                .iter()
-                .any(|b| b.id == blog[1].id));
+            assert!(Blog::find_for_author(conn, &user[0]).unwrap().iter().any(|b| b.id == blog[0].id));
+            assert!(Blog::find_for_author(conn, &user[1]).unwrap().iter().any(|b| b.id == blog[0].id));
+            assert!(Blog::find_for_author(conn, &user[0]).unwrap().iter().any(|b| b.id == blog[1].id));
+            assert!(!Blog::find_for_author(conn, &user[1]).unwrap().iter().any(|b| b.id == blog[1].id));
             Ok(())
         })
     }

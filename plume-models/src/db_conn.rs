@@ -1,7 +1,5 @@
 use crate::Connection;
-use diesel::r2d2::{
-    ConnectionManager, CustomizeConnection, Error as ConnError, Pool, PooledConnection,
-};
+use diesel::r2d2::{ConnectionManager, CustomizeConnection, Error as ConnError, Pool, PooledConnection};
 #[cfg(feature = "sqlite")]
 use diesel::{dsl::sql_query, ConnectionError, RunQueryDsl};
 use rocket::{
@@ -26,7 +24,7 @@ impl<'r> FromRequest<'r> for DbConn {
     type Error = ();
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<DbConn, Self::Error> {
-        match request.guard::<&State<DbPool>>().await.map(|p| p.get()){
+        match request.guard::<&State<DbPool>>().await.map(|p| p.get()) {
             Outcome::Success(Ok(conn)) => Outcome::Success(DbConn(conn)),
             _ => Outcome::Error((Status::ServiceUnavailable, ())),
         }
@@ -54,14 +52,9 @@ pub struct PragmaForeignKey;
 impl CustomizeConnection<Connection, ConnError> for PragmaForeignKey {
     #[cfg(feature = "sqlite")] // will default to an empty function for postgres
     fn on_acquire(&self, conn: &mut Connection) -> Result<(), ConnError> {
-        sql_query("PRAGMA foreign_keys = on;")
-            .execute(conn)
-            .map(|_| ())
-            .map_err(|_| {
-                ConnError::ConnectionError(ConnectionError::BadConnection(String::from(
-                    "PRAGMA foreign_keys = on failed",
-                )))
-            })
+        sql_query("PRAGMA foreign_keys = on;").execute(conn).map(|_| ()).map_err(|_| {
+            ConnError::ConnectionError(ConnectionError::BadConnection(String::from("PRAGMA foreign_keys = on failed")))
+        })
     }
 }
 

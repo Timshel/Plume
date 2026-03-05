@@ -63,16 +63,8 @@ lazy_static! {
         let lang = window().unwrap().navigator().language().unwrap();
         let lang = lang.split_once('-').map_or("en", |x| x.0);
 
-        let english_position = catalogs
-            .iter()
-            .position(|(language_code, _)| *language_code == "en")
-            .unwrap();
-        catalogs
-            .iter()
-            .find(|(l, _)| l == &lang)
-            .unwrap_or(&catalogs[english_position])
-            .clone()
-            .1
+        let english_position = catalogs.iter().position(|(language_code, _)| *language_code == "en").unwrap();
+        catalogs.iter().find(|(l, _)| l == &lang).unwrap_or(&catalogs[english_position]).clone().1
     };
 }
 
@@ -84,9 +76,7 @@ pub fn main() -> Result<(), JsValue> {
 
     menu();
     search();
-    editor::init()
-        .map_err(|e| console::error_1(&format!("Editor error: {:?}", e).into()))
-        .ok();
+    editor::init().map_err(|e| console::error_1(&format!("Editor error: {:?}", e).into())).ok();
     Ok(())
 }
 
@@ -101,43 +91,28 @@ fn menu() {
             let show_menu = Closure::wrap(Box::new(|_: TouchEvent| {
                 self::document()
                     .get_element_by_id("menu")
-                    .map(|menu| {
-                        menu.set_attribute("aria-expanded", "true")
-                            .map(|_| menu.class_list().add_1("show"))
-                    })
+                    .map(|menu| menu.set_attribute("aria-expanded", "true").map(|_| menu.class_list().add_1("show")))
                     .unwrap()
                     .unwrap()
                     .unwrap();
             }) as Box<dyn FnMut(TouchEvent)>);
-            button
-                .add_event_listener_with_callback("touchend", show_menu.as_ref().unchecked_ref())
-                .unwrap();
+            button.add_event_listener_with_callback("touchend", show_menu.as_ref().unchecked_ref()).unwrap();
             show_menu.forget();
 
             let close_menu = Closure::wrap(Box::new(|evt: TouchEvent| {
-                if evt
-                    .target()
-                    .unwrap()
-                    .dyn_ref::<Element>()
-                    .unwrap()
-                    .closest("a")
-                    .unwrap()
-                    .is_some()
-                {
+                if evt.target().unwrap().dyn_ref::<Element>().unwrap().closest("a").unwrap().is_some() {
                     return;
                 }
                 self::document()
                     .get_element_by_id("menu")
                     .map(|menu| {
-                        menu.set_attribute("aria-expanded", "false")
-                            .map(|_| menu.class_list().remove_1("show"))
+                        menu.set_attribute("aria-expanded", "false").map(|_| menu.class_list().remove_1("show"))
                     })
                     .unwrap()
                     .unwrap()
                     .unwrap()
             }) as Box<dyn FnMut(TouchEvent)>);
-            menu.add_event_listener_with_callback("touchend", close_menu.as_ref().unchecked_ref())
-                .unwrap();
+            menu.add_event_listener_with_callback("touchend", close_menu.as_ref().unchecked_ref()).unwrap();
             close_menu.forget();
         }
     }
@@ -163,8 +138,7 @@ fn search() {
                 })
                 .unwrap();
         }) as Box<dyn FnMut(Event)>);
-        form.add_event_listener_with_callback("submit", normalize_query.as_ref().unchecked_ref())
-            .unwrap();
+        form.add_event_listener_with_callback("submit", normalize_query.as_ref().unchecked_ref()).unwrap();
         normalize_query.forget();
     }
 }

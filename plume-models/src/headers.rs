@@ -21,10 +21,7 @@ impl<'r> FromRequest<'r> for Headers<'r> {
         } else {
             ori.path().to_owned().to_string()
         };
-        headers.add(Header::new(
-            "(request-target)",
-            format!("{} {}", request.method().as_str().to_lowercase(), uri),
-        ));
+        headers.add(Header::new("(request-target)", format!("{} {}", request.method().as_str().to_lowercase(), uri)));
         Outcome::Success(Headers(headers))
     }
 }

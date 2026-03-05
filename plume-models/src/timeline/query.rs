@@ -51,21 +51,15 @@ impl<'a> Token<'a> {
     fn get_pos(&self) -> (usize, usize) {
         match self {
             Token::Word(a, b, _) => (*a, *b),
-            Token::LParent(a)
-            | Token::RParent(a)
-            | Token::LBracket(a)
-            | Token::RBracket(a)
-            | Token::Comma(a) => (*a, 1),
+            Token::LParent(a) | Token::RParent(a) | Token::LBracket(a) | Token::RBracket(a) | Token::Comma(a) => {
+                (*a, 1)
+            }
         }
     }
 
     fn get_error<T>(&self, token: Token<'_>) -> QueryResult<T> {
         let (b, e) = self.get_pos();
-        let message = format!(
-            "Syntax Error: Expected {}, got {}",
-            token.to_string(),
-            self.to_string()
-        );
+        let message = format!("Syntax Error: Expected {}, got {}", token.to_string(), self.to_string());
         Err(QueryError::SyntaxError(b, e, message))
     }
 }
@@ -152,17 +146,10 @@ enum TQ<'a> {
 }
 
 impl<'a> TQ<'a> {
-
     #[async_recursion::async_recursion]
-    async fn matches(
-        &self,
-        conn: &mut Connection,
-        timeline: &Timeline,
-        post: &Post,
-        kind: &Kind,
-    ) -> Result<bool> {
+    async fn matches(&self, conn: &mut Connection, timeline: &Timeline, post: &Post, kind: &Kind) -> Result<bool> {
         match self {
-            TQ::Or(inner) =>  {
+            TQ::Or(inner) => {
                 let mut res = false;
                 for e in inner {
                     res = e.matches(conn, timeline, post, kind).await?;
@@ -171,7 +158,7 @@ impl<'a> TQ<'a> {
                     }
                 }
                 Ok(res)
-            },
+            }
             TQ::And(inner) => {
                 let mut res = true;
                 for e in inner {
@@ -181,7 +168,7 @@ impl<'a> TQ<'a> {
                     }
                 }
                 Ok(res)
-            },
+            }
             TQ::Arg(inner, invert) => Ok(inner.matches(conn, timeline, post, kind).await? ^ invert),
         }
     }
@@ -194,7 +181,9 @@ impl<'a> TQ<'a> {
                 (*name).to_string(),
                 match typ {
                     WithList::Blog => ListType::Blog,
-                    WithList::Author { .. } => ListType::User,
+                    WithList::Author {
+                        ..
+                    } => ListType::User,
                     WithList::License => ListType::Word,
                     WithList::Tags => ListType::Word,
                     WithList::Lang => ListType::Prefix,
@@ -213,13 +202,7 @@ enum Arg<'a> {
 }
 
 impl<'a> Arg<'a> {
-    pub async fn matches(
-        &self,
-        conn: &mut Connection,
-        timeline: &Timeline,
-        post: &Post,
-        kind: &Kind,
-    ) -> Result<bool> {
+    pub async fn matches(&self, conn: &mut Connection, timeline: &Timeline, post: &Post, kind: &Kind) -> Result<bool> {
         match self {
             Arg::In(t, l) => t.matches(conn, timeline, post, l, kind).await,
             Arg::Contains(t, v) => t.matches(post, v),
@@ -231,7 +214,10 @@ impl<'a> Arg<'a> {
 #[derive(Debug, Clone, PartialEq)]
 enum WithList {
     Blog,
-    Author { boosts: bool, likes: bool },
+    Author {
+        boosts: bool,
+        likes: bool,
+    },
     License,
     Tags,
     Lang,
@@ -251,11 +237,16 @@ impl WithList {
                 let list = lists::List::find_for_user_by_name(conn, timeline.user_id, name)?;
                 match (self, list.kind()) {
                     (WithList::Blog, ListType::Blog) => list.contains_blog(conn, post.blog_id),
-                    (WithList::Author { boosts, likes }, ListType::User) => match kind {
-                        Kind::Original => Ok(list
-                            .list_users(conn)?
-                            .iter()
-                            .any(|a| post.is_author(conn, a.id).unwrap_or(false))),
+                    (
+                        WithList::Author {
+                            boosts,
+                            likes,
+                        },
+                        ListType::User,
+                    ) => match kind {
+                        Kind::Original => {
+                            Ok(list.list_users(conn)?.iter().any(|a| post.is_author(conn, a.id).unwrap_or(false)))
+                        }
                         Kind::Reshare(u) => {
                             if *boosts {
                                 list.contains_user(conn, u.id)
@@ -274,10 +265,7 @@ impl WithList {
                     (WithList::License, ListType::Word) => list.contains_word(conn, &post.license),
                     (WithList::Tags, ListType::Word) => {
                         let tags = Tag::for_post(conn, post.id)?;
-                        Ok(list
-                            .list_words(conn)?
-                            .iter()
-                            .any(|s| tags.iter().any(|t| s == &t.tag)))
+                        Ok(list.list_words(conn)?.iter().any(|s| tags.iter().any(|t| s == &t.tag)))
                     }
                     (WithList::Lang, ListType::Prefix) => {
                         let lang = whatlang::detect(post.content.get())
@@ -311,8 +299,11 @@ impl WithList {
                         };
                     }
                     Ok(res)
-                },
-                WithList::Author { boosts, likes } => match kind {
+                }
+                WithList::Author {
+                    boosts,
+                    likes,
+                } => match kind {
                     Kind::Original => {
                         let mut res = false;
                         for l in list {
@@ -324,7 +315,7 @@ impl WithList {
                             };
                         }
                         Ok(res)
-                    },
+                    }
                     Kind::Reshare(u) => {
                         if *boosts {
                             Ok(list.iter().any(|user| &u.fqn == user))
@@ -383,22 +374,22 @@ impl WithContains {
 
 #[derive(Debug, Clone, PartialEq)]
 enum Bool {
-    Followed { boosts: bool, likes: bool },
+    Followed {
+        boosts: bool,
+        likes: bool,
+    },
     HasCover,
     Local,
     All,
 }
 
 impl Bool {
-    pub fn matches(
-        &self,
-        conn: &mut Connection,
-        timeline: &Timeline,
-        post: &Post,
-        kind: &Kind,
-    ) -> Result<bool> {
+    pub fn matches(&self, conn: &mut Connection, timeline: &Timeline, post: &Post, kind: &Kind) -> Result<bool> {
         match self {
-            Bool::Followed { boosts, likes } => {
+            Bool::Followed {
+                boosts,
+                likes,
+            } => {
                 if timeline.user_id.is_none() {
                     return Ok(false);
                 }
@@ -509,11 +500,7 @@ fn parse_c<'a, 'b>(stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>], TQ<
 }
 
 fn parse_d<'a, 'b>(mut stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>], Arg<'a>)> {
-    match stream
-        .get(0)
-        .map(Token::get_text)
-        .ok_or(QueryError::UnexpectedEndOfQuery)?
-    {
+    match stream.get(0).map(Token::get_text).ok_or(QueryError::UnexpectedEndOfQuery)? {
         s @ "blog" | s @ "author" | s @ "license" | s @ "tags" | s @ "lang" => {
             match stream.get(1).ok_or(QueryError::UnexpectedEndOfQuery)? {
                 Token::Word(_, _, r#in) if r#in == &"in" => {
@@ -529,16 +516,10 @@ fn parse_d<'a, 'b>(mut stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>],
                                 }
                                 match (
                                     *clude,
-                                    left.get(1)
-                                        .map(Token::get_text)
-                                        .ok_or(QueryError::UnexpectedEndOfQuery)?,
+                                    left.get(1).map(Token::get_text).ok_or(QueryError::UnexpectedEndOfQuery)?,
                                 ) {
-                                    ("include", "reshares") | ("include", "reshare") => {
-                                        boosts = true
-                                    }
-                                    ("exclude", "reshares") | ("exclude", "reshare") => {
-                                        boosts = false
-                                    }
+                                    ("include", "reshares") | ("include", "reshare") => boosts = true,
+                                    ("exclude", "reshares") | ("exclude", "reshare") => boosts = false,
                                     ("include", "likes") | ("include", "like") => likes = true,
                                     ("exclude", "likes") | ("exclude", "like") => likes = false,
                                     (_, w) => {
@@ -551,7 +532,10 @@ fn parse_d<'a, 'b>(mut stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>],
                                 }
                                 left = &left[2..];
                             }
-                            WithList::Author { boosts, likes }
+                            WithList::Author {
+                                boosts,
+                                likes,
+                            }
                         }
                         "license" => WithList::License,
                         "tags" => WithList::Tags,
@@ -579,9 +563,7 @@ fn parse_d<'a, 'b>(mut stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>],
                     w,
                 ),
             )),
-            (Token::Word(_, _, contains), t) if contains == &"contains" => {
-                t.get_error(Token::Word(0, 0, "any word"))
-            }
+            (Token::Word(_, _, contains), t) if contains == &"contains" => t.get_error(Token::Word(0, 0, "any word")),
             (t, _) => t.get_error(Token::Word(0, 0, "'contains'")),
         },
         s @ "followed" | s @ "has_cover" | s @ "local" | s @ "all" => match s {
@@ -592,43 +574,36 @@ fn parse_d<'a, 'b>(mut stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>],
                     if *clude != "include" && *clude != "exclude" {
                         break;
                     }
-                    match (
-                        *clude,
-                        stream
-                            .get(2)
-                            .map(Token::get_text)
-                            .ok_or(QueryError::UnexpectedEndOfQuery)?,
-                    ) {
+                    match (*clude, stream.get(2).map(Token::get_text).ok_or(QueryError::UnexpectedEndOfQuery)?) {
                         ("include", "reshares") | ("include", "reshare") => boosts = true,
                         ("exclude", "reshares") | ("exclude", "reshare") => boosts = false,
                         ("include", "likes") | ("include", "like") => likes = true,
                         ("exclude", "likes") | ("exclude", "like") => likes = false,
                         (_, w) => {
-                            return Token::Word(*s, *e, w).get_error(Token::Word(
-                                0,
-                                0,
-                                "one of 'likes' or 'boosts'",
-                            ))
+                            return Token::Word(*s, *e, w).get_error(Token::Word(0, 0, "one of 'likes' or 'boosts'"))
                         }
                     }
                     stream = &stream[2..];
                 }
-                Ok((&stream[1..], Arg::Boolean(Bool::Followed { boosts, likes })))
+                Ok((
+                    &stream[1..],
+                    Arg::Boolean(Bool::Followed {
+                        boosts,
+                        likes,
+                    }),
+                ))
             }
             "has_cover" => Ok((&stream[1..], Arg::Boolean(Bool::HasCover))),
             "local" => Ok((&stream[1..], Arg::Boolean(Bool::Local))),
             "all" => Ok((&stream[1..], Arg::Boolean(Bool::All))),
             _ => unreachable!(),
         },
-        _ => stream
-            .get(0)
-            .ok_or(QueryError::UnexpectedEndOfQuery)?
-            .get_error(Token::Word(
-                0,
-                0,
-                "one of 'blog', 'author', 'license', 'tags', 'lang', \
+        _ => stream.get(0).ok_or(QueryError::UnexpectedEndOfQuery)?.get_error(Token::Word(
+            0,
+            0,
+            "one of 'blog', 'author', 'license', 'tags', 'lang', \
              'title', 'subtitle', 'content', 'followed', 'has_cover', 'local' or 'all'",
-            )),
+        )),
     }
 }
 
@@ -647,20 +622,16 @@ fn parse_l<'a, 'b>(stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>], Lis
 }
 
 fn parse_m<'a, 'b>(mut stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>], Vec<&'a str>)> {
-    let mut res: Vec<&str> = vec![
-        match stream.get(0).ok_or(QueryError::UnexpectedEndOfQuery)? {
-            Token::Word(_, _, w) => w,
-            t => return t.get_error(Token::Word(0, 0, "any word")),
-        },
-    ];
+    let mut res: Vec<&str> = vec![match stream.get(0).ok_or(QueryError::UnexpectedEndOfQuery)? {
+        Token::Word(_, _, w) => w,
+        t => return t.get_error(Token::Word(0, 0, "any word")),
+    }];
     stream = &stream[1..];
     while let Token::Comma(_) = stream[0] {
-        res.push(
-            match stream.get(1).ok_or(QueryError::UnexpectedEndOfQuery)? {
-                Token::Word(_, _, w) => w,
-                t => return t.get_error(Token::Word(0, 0, "any word")),
-            },
-        );
+        res.push(match stream.get(1).ok_or(QueryError::UnexpectedEndOfQuery)? {
+            Token::Word(_, _, w) => w,
+            t => return t.get_error(Token::Word(0, 0, "any word")),
+        });
         stream = &stream[2..];
     }
 
@@ -683,13 +654,7 @@ impl<'a> TimelineQuery<'a> {
             .map(TimelineQuery)
     }
 
-    pub async fn matches(
-        &self,
-        conn: &mut Connection,
-        timeline: &Timeline,
-        post: &Post,
-        kind: &Kind,
-    ) -> Result<bool> {
+    pub async fn matches(&self, conn: &mut Connection, timeline: &Timeline, post: &Post, kind: &Kind) -> Result<bool> {
         self.0.matches(conn, timeline, post, kind).await
     }
 
@@ -721,16 +686,15 @@ mod tests {
 
     #[test]
     fn test_parser() {
-        let q = TimelineQuery::parse(r#"lang in [fr, en] and (license in my_fav_lic or not followed) or title contains "Plume is amazing""#)
-            .unwrap();
+        let q = TimelineQuery::parse(
+            r#"lang in [fr, en] and (license in my_fav_lic or not followed) or title contains "Plume is amazing""#,
+        )
+        .unwrap();
         assert_eq!(
             q.0,
             TQ::Or(vec![
                 TQ::And(vec![
-                    TQ::Arg(
-                        Arg::In(WithList::Lang, List::Array(vec!["fr", "en"]),),
-                        false
-                    ),
+                    TQ::Arg(Arg::In(WithList::Lang, List::Array(vec!["fr", "en"]),), false),
                     TQ::Or(vec![
                         TQ::Arg(Arg::In(WithList::License, List::List("my_fav_lic"),), false),
                         TQ::Arg(
@@ -742,10 +706,7 @@ mod tests {
                         ),
                     ]),
                 ]),
-                TQ::Arg(
-                    Arg::Contains(WithContains::Title, "Plume is amazing",),
-                    false
-                ),
+                TQ::Arg(Arg::Contains(WithContains::Title, "Plume is amazing",), false),
             ])
         );
 
@@ -773,10 +734,8 @@ mod tests {
             ])
         );
 
-        let contains = TimelineQuery::parse(
-            r#"title contains a or subtitle contains b or content contains c"#,
-        )
-        .unwrap();
+        let contains =
+            TimelineQuery::parse(r#"title contains a or subtitle contains b or content contains c"#).unwrap();
         assert_eq!(
             contains.0,
             TQ::Or(vec![
@@ -786,10 +745,8 @@ mod tests {
             ])
         );
 
-        let booleans = TimelineQuery::parse(
-            r#"followed include like exclude reshares and has_cover and local and all"#,
-        )
-        .unwrap();
+        let booleans =
+            TimelineQuery::parse(r#"followed include like exclude reshares and has_cover and local and all"#).unwrap();
         assert_eq!(
             booleans.0,
             TQ::And(vec![
@@ -812,46 +769,25 @@ mod tests {
         let missing_and_or = TimelineQuery::parse(r#"followed or has_cover local"#).unwrap_err();
         assert_eq!(
             missing_and_or,
-            QueryError::SyntaxError(
-                22,
-                5,
-                "Syntax Error: Expected on of 'or' or 'and', got 'local'".to_owned()
-            )
+            QueryError::SyntaxError(22, 5, "Syntax Error: Expected on of 'or' or 'and', got 'local'".to_owned())
         );
 
-        let unbalanced_parent =
-            TimelineQuery::parse(r#"followed and (has_cover or local"#).unwrap_err();
+        let unbalanced_parent = TimelineQuery::parse(r#"followed and (has_cover or local"#).unwrap_err();
         assert_eq!(unbalanced_parent, QueryError::UnexpectedEndOfQuery);
 
-        let missing_and_or_in_par =
-            TimelineQuery::parse(r#"(title contains "abc def" followed)"#).unwrap_err();
+        let missing_and_or_in_par = TimelineQuery::parse(r#"(title contains "abc def" followed)"#).unwrap_err();
         assert_eq!(
             missing_and_or_in_par,
-            QueryError::SyntaxError(
-                26,
-                8,
-                "Syntax Error: Expected ')', got 'followed'".to_owned()
-            )
+            QueryError::SyntaxError(26, 8, "Syntax Error: Expected ')', got 'followed'".to_owned())
         );
 
         let expect_in = TimelineQuery::parse(r#"lang contains abc"#).unwrap_err();
-        assert_eq!(
-            expect_in,
-            QueryError::SyntaxError(
-                5,
-                8,
-                "Syntax Error: Expected 'in', got 'contains'".to_owned()
-            )
-        );
+        assert_eq!(expect_in, QueryError::SyntaxError(5, 8, "Syntax Error: Expected 'in', got 'contains'".to_owned()));
 
         let expect_contains = TimelineQuery::parse(r#"title in abc"#).unwrap_err();
         assert_eq!(
             expect_contains,
-            QueryError::SyntaxError(
-                6,
-                2,
-                "Syntax Error: Expected 'contains', got 'in'".to_owned()
-            )
+            QueryError::SyntaxError(6, 2, "Syntax Error: Expected 'contains', got 'in'".to_owned())
         );
 
         let expect_keyword = TimelineQuery::parse(r#"not_a_field contains something"#).unwrap_err();
@@ -892,22 +828,13 @@ mod tests {
         );
 
         let expect_word = TimelineQuery::parse(r#"title contains ,"#).unwrap_err();
-        assert_eq!(
-            expect_word,
-            QueryError::SyntaxError(15, 1, "Syntax Error: Expected any word, got ','".to_owned())
-        );
+        assert_eq!(expect_word, QueryError::SyntaxError(15, 1, "Syntax Error: Expected any word, got ','".to_owned()));
 
         let got_bracket = TimelineQuery::parse(r#"lang in []"#).unwrap_err();
-        assert_eq!(
-            got_bracket,
-            QueryError::SyntaxError(9, 1, "Syntax Error: Expected any word, got ']'".to_owned())
-        );
+        assert_eq!(got_bracket, QueryError::SyntaxError(9, 1, "Syntax Error: Expected any word, got ']'".to_owned()));
 
         let got_par = TimelineQuery::parse(r#"lang in [a, ("#).unwrap_err();
-        assert_eq!(
-            got_par,
-            QueryError::SyntaxError(12, 1, "Syntax Error: Expected any word, got '('".to_owned())
-        );
+        assert_eq!(got_par, QueryError::SyntaxError(12, 1, "Syntax Error: Expected any word, got '('".to_owned()));
     }
 
     #[test]

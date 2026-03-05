@@ -30,7 +30,7 @@ impl<'r> FromRequest<'r> for InclusiveAdmin {
     async fn from_request(request: &'r Request<'_>) -> Outcome<InclusiveAdmin, Self::Error> {
         match request.guard::<User>().await {
             Outcome::Success(user) if user.is_admin() => Outcome::Success(InclusiveAdmin(user)),
-            _ => Outcome::Forward(Status::Unauthorized)
+            _ => Outcome::Forward(Status::Unauthorized),
         }
     }
 }

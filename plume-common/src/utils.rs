@@ -9,9 +9,7 @@ use syntect::parsing::SyntaxSet;
 pub fn random_hex() -> String {
     let mut bytes = [0; 32];
     rand_bytes(&mut bytes).expect("Error while generating client id");
-    bytes
-        .iter()
-        .fold(String::new(), |res, byte| format!("{}{:x}", res, byte))
+    bytes.iter().fold(String::new(), |res, byte| format!("{}{:x}", res, byte))
 }
 
 /**
@@ -59,9 +57,7 @@ pub fn iri_percent_encode_seg_char(c: char) -> String {
             | '='
             | ':'
             | '@' => c.to_string(),
-            _ => {
-                rocket::http::RawStr::new(&c.to_string()).percent_encode().to_string()
-            }
+            _ => rocket::http::RawStr::new(&c.to_string()).percent_encode().to_string(),
         }
     }
 }
@@ -76,9 +72,7 @@ enum State {
 
 fn to_inline(tag: Tag<'_>) -> Tag<'_> {
     match tag {
-        Tag::Heading(_) | Tag::Table(_) | Tag::TableHead | Tag::TableRow | Tag::TableCell => {
-            Tag::Paragraph
-        }
+        Tag::Heading(_) | Tag::Table(_) | Tag::TableHead | Tag::TableRow | Tag::TableCell => Tag::Paragraph,
         Tag::Image(typ, url, title) => Tag::Link(typ, url, title),
         t => t,
     }
@@ -87,15 +81,14 @@ struct HighlighterContext {
     content: Vec<String>,
 }
 #[allow(clippy::unnecessary_wraps)]
-fn highlight_code<'a>(
-    context: &mut Option<HighlighterContext>,
-    evt: Event<'a>,
-) -> Option<Vec<Event<'a>>> {
+fn highlight_code<'a>(context: &mut Option<HighlighterContext>, evt: Event<'a>) -> Option<Vec<Event<'a>>> {
     match evt {
         Event::Start(Tag::CodeBlock(kind)) => {
             match &kind {
                 CodeBlockKind::Fenced(lang) if !lang.is_empty() => {
-                    *context = Some(HighlighterContext { content: vec![] });
+                    *context = Some(HighlighterContext {
+                        content: vec![],
+                    });
                 }
                 _ => {}
             }
@@ -115,15 +108,9 @@ fn highlight_code<'a>(
                 };
                 let syntax_set = SyntaxSet::load_defaults_newlines();
                 let syntax = syntax_set.find_syntax_by_token(lang).unwrap_or_else(|| {
-                    syntax_set
-                        .find_syntax_by_name(lang)
-                        .unwrap_or_else(|| syntax_set.find_syntax_plain_text())
+                    syntax_set.find_syntax_by_name(lang).unwrap_or_else(|| syntax_set.find_syntax_plain_text())
                 });
-                let mut html = ClassedHTMLGenerator::new_with_class_style(
-                    syntax,
-                    &syntax_set,
-                    ClassStyle::Spaced,
-                );
+                let mut html = ClassedHTMLGenerator::new_with_class_style(syntax, &syntax_set, ClassStyle::Spaced);
                 for line in ctx.content {
                     let _ = html.parse_html_for_line_which_includes_newline(&line);
                 }
@@ -166,10 +153,7 @@ fn flatten_text<'a>(state: &mut Option<String>, evt: Event<'a>) -> Option<Vec<Ev
 }
 
 #[allow(clippy::unnecessary_wraps)]
-fn inline_tags<'a>(
-    (state, inline): &mut (Vec<Tag<'a>>, bool),
-    evt: Event<'a>,
-) -> Option<Event<'a>> {
+fn inline_tags<'a>((state, inline): &mut (Vec<Tag<'a>>, bool), evt: Event<'a>) -> Option<Event<'a>> {
     if *inline {
         let new_evt = match evt {
             Event::Start(t) => {
@@ -191,11 +175,7 @@ fn inline_tags<'a>(
 
 pub type MediaProcessor<'a> = Box<dyn 'a + FnMut(i32) -> Option<(String, Option<String>)>>;
 
-fn process_image<'a, 'b>(
-    evt: Event<'a>,
-    inline: bool,
-    processor: &mut Option<MediaProcessor<'b>>,
-) -> Event<'a> {
+fn process_image<'a, 'b>(evt: Event<'a>, inline: bool, processor: &mut Option<MediaProcessor<'b>>) -> Event<'a> {
     if let Some(ref mut processor) = processor {
         match evt {
             Event::Start(Tag::Image(typ, id, title)) => {
@@ -330,14 +310,7 @@ pub fn md_to_html<'a>(
                                     events.push(Event::Text(format!("@{}", &mention).into()));
                                     events.push(Event::End(link));
 
-                                    (
-                                        events,
-                                        State::Ready,
-                                        c.to_string(),
-                                        n + 1,
-                                        mentions,
-                                        hashtags,
-                                    )
+                                    (events, State::Ready, c.to_string(), n + 1, mentions, hashtags)
                                 }
                             }
                             State::Hashtag => {
@@ -361,37 +334,16 @@ pub fn md_to_html<'a>(
                                     events.push(Event::Text(format!("#{}", &hashtag).into()));
                                     events.push(Event::End(link));
 
-                                    (
-                                        events,
-                                        State::Ready,
-                                        c.to_string(),
-                                        n + 1,
-                                        mentions,
-                                        hashtags,
-                                    )
+                                    (events, State::Ready, c.to_string(), n + 1, mentions, hashtags)
                                 }
                             }
                             State::Ready => {
                                 if !ctx.in_code && !ctx.in_link && c == '@' {
                                     events.push(Event::Text(text_acc.into()));
-                                    (
-                                        events,
-                                        State::Mention,
-                                        String::new(),
-                                        n + 1,
-                                        mentions,
-                                        hashtags,
-                                    )
+                                    (events, State::Mention, String::new(), n + 1, mentions, hashtags)
                                 } else if !ctx.in_code && !ctx.in_link && c == '#' {
                                     events.push(Event::Text(text_acc.into()));
-                                    (
-                                        events,
-                                        State::Hashtag,
-                                        String::new(),
-                                        n + 1,
-                                        mentions,
-                                        hashtags,
-                                    )
+                                    (events, State::Hashtag, String::new(), n + 1, mentions, hashtags)
                                 } else if c.is_alphanumeric() {
                                     text_acc.push(c);
                                     if n >= (txt.chars().count() - 1) {
@@ -431,15 +383,12 @@ pub fn md_to_html<'a>(
             }
             _ => Some((vec![evt], vec![], vec![])),
         })
-        .fold(
-            (vec![], vec![], vec![]),
-            |(mut parser, mut mention, mut hashtag), (mut p, mut m, mut h)| {
-                parser.append(&mut p);
-                mention.append(&mut m);
-                hashtag.append(&mut h);
-                (parser, mention, hashtag)
-            },
-        );
+        .fold((vec![], vec![], vec![]), |(mut parser, mut mention, mut hashtag), (mut p, mut m, mut h)| {
+            parser.append(&mut p);
+            mention.append(&mut m);
+            hashtag.append(&mut h);
+            (parser, mention, hashtag)
+        });
     let parser = parser.into_iter();
     let mentions = mentions.into_iter().map(|m| String::from(m.trim()));
     let hashtags = hashtags.into_iter().map(|h| String::from(h.trim()));
@@ -481,10 +430,7 @@ mod tests {
         for (md, mentions) in tests {
             assert_eq!(
                 md_to_html(md, None, false, None).1,
-                mentions
-                    .into_iter()
-                    .map(|s| s.to_string())
-                    .collect::<HashSet<String>>()
+                mentions.into_iter().map(|s| s.to_string()).collect::<HashSet<String>>()
             );
         }
     }
@@ -509,37 +455,22 @@ mod tests {
         for (md, mentions) in tests {
             assert_eq!(
                 md_to_html(md, None, false, None).2,
-                mentions
-                    .into_iter()
-                    .map(|s| s.to_string())
-                    .collect::<HashSet<String>>()
+                mentions.into_iter().map(|s| s.to_string()).collect::<HashSet<String>>()
             );
         }
     }
 
     #[test]
     fn test_iri_percent_encode_seg() {
-        assert_eq!(
-            &iri_percent_encode_seg("including whitespace"),
-            "including%20whitespace"
-        );
+        assert_eq!(&iri_percent_encode_seg("including whitespace"), "including%20whitespace");
         assert_eq!(&iri_percent_encode_seg("%20"), "%2520");
         assert_eq!(&iri_percent_encode_seg("é"), "é");
-        assert_eq!(
-            &iri_percent_encode_seg("空白入り 日本語"),
-            "空白入り%20日本語"
-        );
+        assert_eq!(&iri_percent_encode_seg("空白入り 日本語"), "空白入り%20日本語");
     }
 
     #[test]
     fn test_inline() {
-        assert_eq!(
-            md_to_html("# Hello", None, false, None).0,
-            String::from("<h1 dir=\"auto\">Hello</h1>\n")
-        );
-        assert_eq!(
-            md_to_html("# Hello", None, true, None).0,
-            String::from("<p dir=\"auto\">Hello</p>\n")
-        );
+        assert_eq!(md_to_html("# Hello", None, false, None).0, String::from("<h1 dir=\"auto\">Hello</h1>\n"));
+        assert_eq!(md_to_html("# Hello", None, true, None).0, String::from("<p dir=\"auto\">Hello</p>\n"));
     }
 }

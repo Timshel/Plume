@@ -2,7 +2,7 @@ use crate::{I18n, Translations, ACCEPT_LANG};
 
 use rocket::{
     http::Status,
-    request::{Request, FromRequest, Outcome},
+    request::{FromRequest, Outcome, Request},
 };
 
 #[rocket::async_trait]
@@ -11,7 +11,8 @@ impl<'r> FromRequest<'r> for I18n {
 
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         let langs = req
-            .rocket().state::<Translations>()
+            .rocket()
+            .state::<Translations>()
             .expect("Couldn't retrieve translations because they are not managed by Rocket.");
 
         let lang = req

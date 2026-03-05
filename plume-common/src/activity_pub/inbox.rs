@@ -223,41 +223,33 @@ where
                 }
 
                 // Transform this actor to a model (see FromId for details about the from_id function)
-                let actor = match A::from_id(
-                    ctx,
-                    &actor_id,
-                    serde_json::from_value(act["actor"].clone()).ok(),
-                    proxy,
-                ).await {
-                    Ok(a) => a,
-                    // If the actor was not found, go to the next handler
-                    Err((json, e)) => {
-                        if let Some(json) = json {
-                            act["actor"] = json;
+                let actor =
+                    match A::from_id(ctx, &actor_id, serde_json::from_value(act["actor"].clone()).ok(), proxy).await {
+                        Ok(a) => a,
+                        // If the actor was not found, go to the next handler
+                        Err((json, e)) => {
+                            if let Some(json) = json {
+                                act["actor"] = json;
+                            }
+                            return Self::NotHandled(ctx, act, InboxError::InvalidActor(Some(e)));
                         }
-                        return Self::NotHandled(ctx, act, InboxError::InvalidActor(Some(e)));
-                    }
-                };
+                    };
 
                 // Same logic for "object"
                 let obj_id = match get_id(act["object"].clone()) {
                     Some(x) => x,
                     None => return Self::NotHandled(ctx, act, InboxError::InvalidObject(None)),
                 };
-                let obj = match M::from_id(
-                    ctx,
-                    &obj_id,
-                    serde_json::from_value(act["object"].clone()).ok(),
-                    proxy,
-                ).await {
-                    Ok(o) => o,
-                    Err((json, e)) => {
-                        if let Some(json) = json {
-                            act["object"] = json;
+                let obj =
+                    match M::from_id(ctx, &obj_id, serde_json::from_value(act["object"].clone()).ok(), proxy).await {
+                        Ok(o) => o,
+                        Err((json, e)) => {
+                            if let Some(json) = json {
+                                act["object"] = json;
+                            }
+                            return Self::NotHandled(ctx, act, InboxError::InvalidObject(Some(e)));
                         }
-                        return Self::NotHandled(ctx, act, InboxError::InvalidObject(Some(e)));
-                    }
-                };
+                    };
 
                 // Handle the activity
                 match obj.activity(ctx, actor, act_id).await {
@@ -354,8 +346,7 @@ pub trait FromId<C>: Sized {
             Ok(x) => Ok(x),
             _ => match object {
                 Some(o) => Self::from_activity(ctx, o).await.map_err(|e| (None, e)),
-                None => Self::from_activity(ctx, Self::deref(id, proxy.cloned())?).await
-                    .map_err(|e| (None, e)),
+                None => Self::from_activity(ctx, Self::deref(id, proxy.cloned())?).await.map_err(|e| (None, e)),
             },
         }
     }
@@ -368,11 +359,8 @@ pub trait FromId<C>: Sized {
         request::get(id, Self::get_sender(), proxy)
             .map_err(|_| (None, InboxError::DerefError))
             .and_then(|r| {
-                let json: serde_json::Value = r
-                    .json()
-                    .map_err(|_| (None, InboxError::InvalidObject(None)))?;
-                serde_json::from_value(json.clone())
-                    .map_err(|_| (Some(json), InboxError::InvalidObject(None)))
+                let json: serde_json::Value = r.json().map_err(|_| (None, InboxError::InvalidObject(None)))?;
+                serde_json::from_value(json.clone()).map_err(|_| (Some(json), InboxError::InvalidObject(None)))
             })
             .map_err(|(json, e)| (json, e.into()))
     }
@@ -550,9 +538,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::activity_pub::sign::{
-        gen_keypair, Error as SignError, Result as SignResult, Signer,
-    };
+    use crate::activity_pub::sign::{gen_keypair, Error as SignError, Result as SignResult, Signer};
     use activitystreams::{
         activity::{Announce, Create, Delete, Like},
         actor::Person,
@@ -586,16 +572,14 @@ mod tests {
         }
 
         fn sign(&self, to_sign: &str) -> SignResult<Vec<u8>> {
-            let key = PKey::from_rsa(Rsa::private_key_from_pem(self.private_key.as_ref()).unwrap())
-                .unwrap();
+            let key = PKey::from_rsa(Rsa::private_key_from_pem(self.private_key.as_ref()).unwrap()).unwrap();
             let mut signer = openssl::sign::Signer::new(MessageDigest::sha256(), &key).unwrap();
             signer.update(to_sign.as_bytes()).unwrap();
             signer.sign_to_vec().map_err(|_| SignError())
         }
 
         fn verify(&self, data: &str, signature: &[u8]) -> SignResult<bool> {
-            let key = PKey::from_rsa(Rsa::public_key_from_pem(self.public_key.as_ref()).unwrap())
-                .unwrap();
+            let key = PKey::from_rsa(Rsa::public_key_from_pem(self.public_key.as_ref()).unwrap()).unwrap();
             let mut verifier = openssl::sign::Verifier::new(MessageDigest::sha256(), &key).unwrap();
             verifier.update(data.as_bytes()).unwrap();
             verifier.verify(signature).map_err(|_| SignError())
@@ -703,9 +687,7 @@ mod tests {
     #[test]
     fn test_inbox_basic() {
         let act = serde_json::to_value(build_create()).unwrap();
-        let res: Result<(), ()> = Inbox::handle(&(), act)
-            .with::<MyActor, Create, MyObject>(None)
-            .done();
+        let res: Result<(), ()> = Inbox::handle(&(), act).with::<MyActor, Create, MyObject>(None).done();
         assert!(res.is_ok());
     }
 
@@ -764,12 +746,7 @@ mod tests {
         type Error = ();
         type Output = ();
 
-        fn activity(
-            self,
-            _: &(),
-            _actor: FailingActor,
-            _id: &str,
-        ) -> Result<Self::Output, Self::Error> {
+        fn activity(self, _: &(), _actor: FailingActor, _id: &str) -> Result<Self::Output, Self::Error> {
             println!("FailingActor is creating a Note");
             Ok(())
         }
@@ -779,9 +756,7 @@ mod tests {
     fn test_inbox_actor_failure() {
         let act = serde_json::to_value(build_create()).unwrap();
 
-        let res: Result<(), ()> = Inbox::handle(&(), act.clone())
-            .with::<FailingActor, Create, MyObject>(None)
-            .done();
+        let res: Result<(), ()> = Inbox::handle(&(), act.clone()).with::<FailingActor, Create, MyObject>(None).done();
         assert!(res.is_err());
 
         let res: Result<(), ()> = Inbox::handle(&(), act)

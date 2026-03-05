@@ -6,7 +6,8 @@ use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
 // https://docs.rs/diesel_migrations/*/diesel_migrations/macro.embed_migrations.html
 #[cfg(feature = "sqlite")]
 mod sqlite_migrations {
-    pub const MIGRATIONS: diesel_migrations::EmbeddedMigrations = diesel_migrations::embed_migrations!("../migrations/sqlite");
+    pub const MIGRATIONS: diesel_migrations::EmbeddedMigrations =
+        diesel_migrations::embed_migrations!("../migrations/sqlite");
 }
 
 // Embed the migrations from the migrations folder into the application
@@ -14,7 +15,8 @@ mod sqlite_migrations {
 // https://docs.rs/diesel_migrations/*/diesel_migrations/macro.embed_migrations.html
 #[cfg(feature = "postgres")]
 mod postgres_migrations {
-    pub const MIGRATIONS: diesel_migrations::EmbeddedMigrations = diesel_migrations::embed_migrations!("../migrations/postgres");
+    pub const MIGRATIONS: diesel_migrations::EmbeddedMigrations =
+        diesel_migrations::embed_migrations!("../migrations/postgres");
 }
 
 fn migrations() -> EmbeddedMigrations {

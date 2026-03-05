@@ -15,9 +15,8 @@ use plume_common::{
     utils,
 };
 use plume_models::{
-    blogs::Blog, comments::*, db_conn::DbConn, inbox::inbox, instance::Instance, medias::Media,
-    mentions::Mention, posts::Post, safe_string::SafeString, tags::Tag, users::User, Error,
-    PlumeRocket, CONFIG,
+    blogs::Blog, comments::*, db_conn::DbConn, inbox::inbox, instance::Instance, medias::Media, mentions::Mention,
+    posts::Post, safe_string::SafeString, tags::Tag, users::User, Error, PlumeRocket, CONFIG,
 };
 
 #[derive(Default, FromForm, Debug, Validate)]
@@ -43,11 +42,7 @@ pub async fn create(
         Ok(_) => {
             let (html, mentions, _hashtags) = utils::md_to_html(
                 form.content.as_ref(),
-                Some(
-                    &Instance::get_local()
-                        .expect("comments::create: local instance error")
-                        .public_domain,
-                ),
+                Some(&Instance::get_local().expect("comments::create: local instance error").public_domain),
                 true,
                 Some(Media::get_media_processor(&mut conn, vec![&user])),
             );
@@ -65,24 +60,15 @@ pub async fn create(
                 },
             )
             .expect("comments::create: insert error");
-            let new_comment = comm
-                .create_activity(&mut conn)
-                .await
-                .expect("comments::create: activity error");
+            let new_comment = comm.create_activity(&mut conn).await.expect("comments::create: activity error");
 
             // save mentions
             for ment in mentions {
-                let activity = &Mention::build_activity(&mut conn, &ment).await
-                    .expect("comments::create: build mention error");
+                let activity =
+                    &Mention::build_activity(&mut conn, &ment).await.expect("comments::create: build mention error");
 
-                Mention::from_activity(
-                    &mut conn,
-                    activity,
-                    comm.id,
-                    false,
-                    true,
-                )
-                .expect("comments::create: mention save error");
+                Mention::from_activity(&mut conn, activity, comm.id, false, true)
+                    .expect("comments::create: mention save error");
             }
 
             comm.notify(&mut conn).expect("comments::create: notify error");
@@ -90,21 +76,17 @@ pub async fn create(
             // federate
             let dest = User::one_by_instance(&mut conn).expect("comments::create: dest error");
             let user_clone = user.clone();
-            rockets.worker.execute(move || {
-                broadcast(&user_clone, new_comment, dest, CONFIG.proxy().cloned())
-            });
+            rockets.worker.execute(move || broadcast(&user_clone, new_comment, dest, CONFIG.proxy().cloned()));
 
             Ok(Flash::success(
-                Redirect::to(uri!(
-                    super::posts::details(blog = blog_name,slug = slug,responding_to = _)
-                )),
+                Redirect::to(uri!(super::posts::details(blog = blog_name, slug = slug, responding_to = _))),
                 i18n!(&rockets.intl.catalog, "Your comment has been posted."),
             ))
-        },
+        }
         Err(errors) => {
             // TODO: de-duplicate this code
-            let comments = CommentTree::from_post(&mut conn, &post, Some(&user))
-                .expect("comments::create: comments error");
+            let comments =
+                CommentTree::from_post(&mut conn, &post, Some(&user)).expect("comments::create: comments error");
 
             let cover_url = post.cover_url(&mut conn).unwrap_or_default();
             let tags = Tag::for_post(&mut conn, post.id).expect("comments::create: tags error");
@@ -138,7 +120,7 @@ pub async fn create(
                 author_avatar_url,
                 is_author
             )))
-        },
+        }
     }
 }
 
@@ -155,29 +137,17 @@ pub async fn delete(
         if comment.author_id == user.id {
             let dest = User::one_by_instance(&mut conn)?;
             let delete_activity = comment.build_delete(&mut conn)?;
-            inbox(
-                &mut conn,
-                serde_json::to_value(&delete_activity).map_err(Error::from)?,
-            ).await?;
+            inbox(&mut conn, serde_json::to_value(&delete_activity).map_err(Error::from)?).await?;
 
             let user_c = user.clone();
-            rockets.worker.execute(move || {
-                broadcast(&user_c, delete_activity, dest, CONFIG.proxy().cloned())
+            rockets.worker.execute(move || broadcast(&user_c, delete_activity, dest, CONFIG.proxy().cloned()));
+            rockets.worker.execute_after(Duration::from_secs(10 * 60), move || {
+                user.rotate_keypair(&mut conn).expect("Failed to rotate keypair");
             });
-            rockets
-                .worker
-                .execute_after(Duration::from_secs(10 * 60), move || {
-                    user.rotate_keypair(&mut conn)
-                        .expect("Failed to rotate keypair");
-                });
         }
     }
     Ok(Flash::success(
-        Redirect::to(uri!(
-            super::posts::details(blog = blog,
-            slug = slug,
-            responding_to = _
-        ))),
+        Redirect::to(uri!(super::posts::details(blog = blog, slug = slug, responding_to = _))),
         i18n!(&rockets.intl.catalog, "Your comment has been deleted."),
     ))
 }

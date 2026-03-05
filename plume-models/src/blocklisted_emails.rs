@@ -59,10 +59,7 @@ impl BlocklistedEmail {
             .map_err(Error::from)
     }
     pub fn count(conn: &mut Connection) -> Result<i64> {
-        email_blocklist::table
-            .count()
-            .get_result(conn)
-            .map_err(Error::from)
+        email_blocklist::table.count().get_result(conn).map_err(Error::from)
     }
     pub fn pattern_errors(pat: &str) -> Option<glob::PatternError> {
         let c = Pattern::new(pat);
@@ -92,8 +89,7 @@ pub(crate) mod tests {
 
     pub(crate) fn fill_database(conn: &Conn) -> Vec<BlocklistedEmail> {
         instance_tests::fill_database(conn);
-        let domainblock =
-            BlocklistedEmail::new(conn, "*@bad-actor.com", "Mean spammers", false, "").unwrap();
+        let domainblock = BlocklistedEmail::new(conn, "*@bad-actor.com", "Mean spammers", false, "").unwrap();
         let userblock = BlocklistedEmail::new(
             conn,
             "spammer@lax-administration.com",
@@ -112,23 +108,9 @@ pub(crate) mod tests {
             let match1 = "user1@bad-actor.com";
             let match2 = "spammer@lax-administration.com";
             let no_match = "happy-user@lax-administration.com";
-            assert_eq!(
-                BlocklistedEmail::matches_blocklist(&conn, match1)
-                    .unwrap()
-                    .unwrap()
-                    .id,
-                various[0].id
-            );
-            assert_eq!(
-                BlocklistedEmail::matches_blocklist(&conn, match2)
-                    .unwrap()
-                    .unwrap()
-                    .id,
-                various[1].id
-            );
-            assert!(BlocklistedEmail::matches_blocklist(&conn, no_match)
-                .unwrap()
-                .is_none());
+            assert_eq!(BlocklistedEmail::matches_blocklist(&conn, match1).unwrap().unwrap().id, various[0].id);
+            assert_eq!(BlocklistedEmail::matches_blocklist(&conn, match2).unwrap().unwrap().id, various[1].id);
+            assert!(BlocklistedEmail::matches_blocklist(&conn, no_match).unwrap().is_none());
             Ok(())
         });
     }

@@ -1,10 +1,10 @@
 use rocket::http::ContentType;
 
+use ::webfinger::{AsyncResolver, Prefix, ResolverError, Webfinger};
 use plume_models::{ap_url, blogs::Blog, db_conn::DbConn, users::User, CONFIG};
-use ::webfinger::{Prefix, AsyncResolver, ResolverError, Webfinger};
 
 #[get("/.well-known/nodeinfo")]
-pub fn nodeinfo() -> (ContentType,String) {
+pub fn nodeinfo() -> (ContentType, String) {
     (
         ContentType::new("application", "jrd+json"),
         json!({
@@ -32,10 +32,7 @@ pub fn host_meta() -> String {
         <Link rel="lrdd" type="application/xrd+xml" template="{url}"/>
     </XRD>
     "#,
-        url = ap_url(&format!(
-            "{domain}/.well-known/webfinger?resource={{uri}}",
-            domain = CONFIG.base_url.as_str()
-        ))
+        url = ap_url(&format!("{domain}/.well-known/webfinger?resource={{uri}}", domain = CONFIG.base_url.as_str()))
     )
 }
 
@@ -51,10 +48,12 @@ impl AsyncResolver for WebfingerResolver {
 
     async fn find(&self, prefix: Prefix, acct: String, mut conn: DbConn) -> Result<Webfinger, ResolverError> {
         match prefix {
-            Prefix::Acct => User::find_by_fqn(&mut conn, &acct).await
+            Prefix::Acct => User::find_by_fqn(&mut conn, &acct)
+                .await
                 .and_then(|usr| usr.webfinger(&mut conn))
                 .or(Err(ResolverError::NotFound)),
-            Prefix::Group => Blog::find_by_fqn(&mut conn, &acct).await
+            Prefix::Group => Blog::find_by_fqn(&mut conn, &acct)
+                .await
                 .and_then(|blog| blog.webfinger(&mut conn))
                 .or(Err(ResolverError::NotFound)),
             Prefix::Custom(_) => Err(ResolverError::NotFound),
@@ -64,17 +63,17 @@ impl AsyncResolver for WebfingerResolver {
 
 #[get("/.well-known/webfinger?<resource>")]
 pub async fn webfinger(resource: &str, conn: DbConn) -> (ContentType, String) {
-    let resolver = WebfingerResolver { };
-    match resolver.endpoint(resource, conn).await
+    let resolver = WebfingerResolver {};
+    match resolver
+        .endpoint(resource, conn)
+        .await
         .and_then(|wf| serde_json::to_string(&wf).map_err(|_| ResolverError::NotFound))
     {
         Ok(wf) => (ContentType::new("application", "jrd+json"), wf),
         Err(err) => (
             ContentType::new("text", "plain"),
             String::from(match err {
-                ResolverError::InvalidResource => {
-                    "Invalid resource. Make sure to request an acct: URI"
-                }
+                ResolverError::InvalidResource => "Invalid resource. Make sure to request an acct: URI",
                 ResolverError::NotFound => "Requested resource was not found",
                 ResolverError::WrongDomain => "This is not the instance of the requested resource",
             }),

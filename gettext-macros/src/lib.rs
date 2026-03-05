@@ -2,9 +2,7 @@
 
 extern crate proc_macro;
 use proc_macro::TokenStream;
-use proc_macro2::{
-    token_stream::IntoIter as TokenIter, Literal, TokenTree,
-};
+use proc_macro2::{token_stream::IntoIter as TokenIter, Literal, TokenTree};
 use quote::quote;
 use std::{
     env,
@@ -40,15 +38,10 @@ fn named_arg(mut input: TokenIter, name: &'static str) -> Option<proc_macro2::To
 }
 
 fn root_crate_path() -> std::path::PathBuf {
-    let path = env::var("CARGO_MANIFEST_DIR")
-        .expect("CARGO_MANIFEST_DIR is not set. Please use cargo to compile your crate.");
+    let path =
+        env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not set. Please use cargo to compile your crate.");
     let path = Path::new(&path);
-    if path
-        .parent()
-        .expect("No parent dir")
-        .join("Cargo.toml")
-        .exists()
-    {
+    if path.parent().expect("No parent dir").join("Cargo.toml").exists() {
         path.parent().expect("No parent dir").to_path_buf()
     } else {
         path.to_path_buf()
@@ -65,20 +58,14 @@ struct Config {
 impl Config {
     fn path() -> std::path::PathBuf {
         Path::new(&env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| {
-            root_crate_path()
-                .join("target")
-                .join("debug")
-                .to_str()
-                .expect("Couldn't compute mo output dir")
-                .into()
+            root_crate_path().join("target").join("debug").to_str().expect("Couldn't compute mo output dir").into()
         }))
         .join("gettext_macros")
         .join(env::var("CARGO_PKG_NAME").expect("Please build with cargo"))
     }
 
     fn read() -> Config {
-        let config = read(Config::path())
-            .expect("Coudln't read domain, make sure to call init_i18n! before");
+        let config = read(Config::path()).expect("Coudln't read domain, make sure to call init_i18n! before");
         let mut lines = config.lines();
         let domain = lines
             .next()
@@ -100,9 +87,7 @@ impl Config {
             domain,
             make_po,
             make_mo,
-            langs: lines
-                .map(|l| l.expect("IO error while reading config"))
-                .collect(),
+            langs: lines.map(|l| l.expect("IO error while reading config")).collect(),
         }
     }
 
@@ -140,10 +125,8 @@ trait Message {
             .expect("Couldn't open .pot file");
 
         let mut contents = String::new();
-        pot.read_to_string(&mut contents)
-            .expect("IO error while reading .pot file");
-        pot.seek(SeekFrom::End(0))
-            .expect("IO error while seeking .pot file to end");
+        pot.read_to_string(&mut contents).expect("IO error while reading .pot file");
+        pot.seek(SeekFrom::End(0)).expect("IO error while seeking .pot file to end");
 
         let already_exists = self.content().is_empty()
             || contents.contains(&format!(
@@ -151,9 +134,10 @@ trait Message {
                 self.context()
                     .clone()
                     .map(|c| format!(
-r#"msgctxt "{}"
+                        r#"msgctxt "{}"
 "#,
-                    c))
+                        c
+                    ))
                     .unwrap_or_default(),
                 self.content()
             ));
@@ -163,8 +147,10 @@ r#"msgctxt "{}"
 
         let prefix = if let Some(c) = self.context() {
             format!(
-r#"msgctxt "{}"
-"#, c)
+                r#"msgctxt "{}"
+"#,
+                c
+            )
         } else {
             String::new()
         };
@@ -177,7 +163,9 @@ r#"msgctxt "{}"
 msgid_plural "{}"
 msgstr[0] ""
 "#,
-                    prefix, self.content(), pl,
+                    prefix,
+                    self.content(),
+                    pl,
                 )
                 .into_bytes(),
             )
@@ -189,7 +177,8 @@ msgstr[0] ""
 {}msgid "{}"
 msgstr ""
 "#,
-                    prefix, self.content(),
+                    prefix,
+                    self.content(),
                 )
                 .into_bytes(),
             )
@@ -246,7 +235,10 @@ impl syn::parse::Parse for I18nCall {
 
 fn extract_str_lit(expr: &syn::Expr) -> Option<String> {
     match *expr {
-        syn::Expr::Lit(syn::ExprLit { lit : syn::Lit::Str(ref s), attrs: _ }) => Some(s.value()),
+        syn::Expr::Lit(syn::ExprLit {
+            lit: syn::Lit::Str(ref s),
+            attrs: _,
+        }) => Some(s.value()),
         _ => None,
     }
 }
@@ -366,7 +358,8 @@ pub fn t(input: TokenStream) -> TokenStream {
     if let Some(pl) = message.plural.clone() {
         quote!(
             (#msg, #pl)
-        ).into()
+        )
+        .into()
     } else {
         quote!(#msg).into()
     }
@@ -458,10 +451,7 @@ pub fn i18n(input: TokenStream) -> TokenStream {
     let gettext_call = message.catalog.clone();
     let content = message.msg;
     let gettext_call = if let Some(pl) = message.plural {
-        let count = message
-            .format_args
-            .clone()
-            .and_then(|args| args.first().cloned());
+        let count = message.format_args.clone().and_then(|args| args.first().cloned());
         if let Some(c) = message.context {
             quote!(
                 #gettext_call.npgettext(#c, #content, #pl, #count as u64)
@@ -483,9 +473,8 @@ pub fn i18n(input: TokenStream) -> TokenStream {
         }
     };
 
-    let fargs: syn::punctuated::Punctuated<proc_macro2::TokenStream, Token![,]> = message.format_args.unwrap_or_default().into_iter().map(|x| {
-        quote!(::std::boxed::Box::new(#x))
-    }).collect();
+    let fargs: syn::punctuated::Punctuated<proc_macro2::TokenStream, Token![,]> =
+        message.format_args.unwrap_or_default().into_iter().map(|x| quote!(::std::boxed::Box::new(#x))).collect();
     let res = quote!({
         use gettext_utils::try_format;
         try_format(#gettext_call, &[#fargs]).expect("Error while formatting message")
@@ -662,16 +651,10 @@ pub fn compile_i18n(_: TokenStream) -> TokenStream {
     let conf = Config::read();
     let domain = &conf.domain;
 
-    let pot_path = root_crate_path()
-        .join("po")
-        .join(domain.clone())
-        .join(format!("{}.pot", domain));
+    let pot_path = root_crate_path().join("po").join(domain.clone()).join(format!("{}.pot", domain));
 
     for lang in conf.langs {
-        let po_path = root_crate_path()
-            .join("po")
-            .join(domain.clone())
-            .join(format!("{}.po", lang.clone()));
+        let po_path = root_crate_path().join("po").join(domain.clone()).join(format!("{}.po", lang.clone()));
         if conf.make_po {
             if po_path.exists() && po_path.is_file() {
                 // Update it
@@ -691,14 +674,8 @@ pub fn compile_i18n(_: TokenStream) -> TokenStream {
                 println!("Creating {}", lang.clone());
                 // Create it from the template
                 Command::new("msginit")
-                    .arg(format!(
-                        "--input={}",
-                        pot_path.to_str().expect("msginit: POT path error")
-                    ))
-                    .arg(format!(
-                        "--output-file={}",
-                        po_path.to_str().expect("msginit: PO path error")
-                    ))
+                    .arg(format!("--input={}", pot_path.to_str().expect("msginit: POT path error")))
+                    .arg(format!("--output-file={}", po_path.to_str().expect("msginit: PO path error")))
                     .arg("-l")
                     .arg(lang.clone())
                     .arg("--no-translator")
@@ -715,20 +692,12 @@ pub fn compile_i18n(_: TokenStream) -> TokenStream {
 
         if conf.make_mo {
             if !po_path.exists() {
-                panic!(
-                    "{} doesn't exist. Make sure you didn't disabled po generation.",
-                    po_path.display()
-                );
+                panic!("{} doesn't exist. Make sure you didn't disabled po generation.", po_path.display());
             }
 
             // Generate .mo
             let mo_dir = Path::new(&env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| {
-                root_crate_path()
-                    .join("target")
-                    .join("debug")
-                    .to_str()
-                    .expect("Couldn't compute mo output dir")
-                    .into()
+                root_crate_path().join("target").join("debug").to_str().expect("Couldn't compute mo output dir").into()
             }))
             .join("gettext_macros")
             .join(lang);
@@ -736,10 +705,7 @@ pub fn compile_i18n(_: TokenStream) -> TokenStream {
             let mo_path = mo_dir.join(format!("{}.mo", domain));
 
             Command::new("msgfmt")
-                .arg(format!(
-                    "--output-file={}",
-                    mo_path.to_str().expect("msgfmt: MO path error")
-                ))
+                .arg(format!("--output-file={}", mo_path.to_str().expect("msgfmt: MO path error")))
                 .arg(po_path)
                 .stdout(Stdio::null())
                 .status()
@@ -792,5 +758,6 @@ pub fn include_i18n(_: TokenStream) -> TokenStream {
         vec![
             #locales
         ]
-    }).into()
+    })
+    .into()
 }

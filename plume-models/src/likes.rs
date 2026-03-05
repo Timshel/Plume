@@ -1,6 +1,6 @@
 use crate::{
-    instance::Instance, notifications::*, posts::Post, schema::likes, timeline::*, users::User,
-    Connection, Error, Result, CONFIG,
+    instance::Instance, notifications::*, posts::Post, schema::likes, timeline::*, users::User, Connection, Error,
+    Result, CONFIG,
 };
 use activitystreams::{
     activity::{Like as LikeAct, Undo},
@@ -45,9 +45,7 @@ impl Like {
             Post::get(conn, self.post_id)?.ap_url.parse::<IriString>()?,
         );
         act.set_many_tos(vec![PUBLIC_VISIBILITY.parse::<IriString>()?]);
-        act.set_many_ccs(vec![User::get(conn, self.user_id)?
-            .followers_endpoint
-            .parse::<IriString>()?]);
+        act.set_many_ccs(vec![User::get(conn, self.user_id)?.followers_endpoint.parse::<IriString>()?]);
         act.set_id(self.ap_url.parse::<IriString>()?);
 
         Ok(act)
@@ -77,9 +75,7 @@ impl Like {
         );
         act.set_id(format!("{}#delete", self.ap_url).parse::<IriString>()?);
         act.set_many_tos(vec![PUBLIC_VISIBILITY.parse::<IriString>()?]);
-        act.set_many_ccs(vec![User::get(conn, self.user_id)?
-            .followers_endpoint
-            .parse::<IriString>()?]);
+        act.set_many_ccs(vec![User::get(conn, self.user_id)?.followers_endpoint.parse::<IriString>()?]);
 
         Ok(act)
     }
@@ -117,10 +113,7 @@ impl FromId<Connection> for Like {
         let like = NewLike {
             post_id: Post::from_id(
                 conn,
-                act.object_unchecked()
-                    .as_single_id()
-                    .ok_or(Error::MissingApProperty)?
-                    .as_str(),
+                act.object_unchecked().as_single_id().ok_or(Error::MissingApProperty)?.as_str(),
                 None,
                 CONFIG.proxy(),
             )
@@ -129,20 +122,14 @@ impl FromId<Connection> for Like {
             .id,
             user_id: User::from_id(
                 conn,
-                act.actor_unchecked()
-                    .as_single_id()
-                    .ok_or(Error::MissingApProperty)?
-                    .as_str(),
+                act.actor_unchecked().as_single_id().ok_or(Error::MissingApProperty)?.as_str(),
                 None,
                 CONFIG.proxy(),
             )
             .await
             .map_err(|(_, e)| e)?
             .id,
-            ap_url: act
-                .id_unchecked()
-                .ok_or(Error::MissingApProperty)?
-                .to_string(),
+            ap_url: act.id_unchecked().ok_or(Error::MissingApProperty)?.to_string(),
         };
 
         let res = Like::insert(conn, like)?;

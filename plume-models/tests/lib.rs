@@ -6,10 +6,8 @@ use plume_models::{Connection as Conn, CONFIG};
 use std::env::temp_dir;
 
 fn db() -> Conn {
-    let conn =
-        Conn::establish(CONFIG.database_url.as_str()).expect("Couldn't connect to the database");
-    plume_models::migrations::run_pending_migrations(&conn)
-        .expect("Couldn't run migrations");
+    let conn = Conn::establish(CONFIG.database_url.as_str()).expect("Couldn't connect to the database");
+    plume_models::migrations::run_pending_migrations(&conn).expect("Couldn't run migrations");
     conn
 }
 

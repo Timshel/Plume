@@ -2,9 +2,9 @@ use ammonia::{Builder, UrlRelative};
 use diesel::{
     self,
     deserialize::Queryable,
+    serialize::ToSql,
     serialize::{self, Output},
     sql_types::Text,
-    serialize::ToSql,
 };
 use serde::{self, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use std::{

@@ -21,9 +21,7 @@ impl<'r> Responder<'r, 'r> for ErrorPage {
         warn!("{:?}", self.0);
 
         match self.0 {
-            Error::NotFound | Error::Unauthorized | Error::Db(diesel::result::Error::NotFound) => {
-                Err(Status::NotFound)
-            }
+            Error::NotFound | Error::Unauthorized | Error::Db(diesel::result::Error::NotFound) => Err(Status::NotFound),
             _ => Err(Status::InternalServerError),
         }
     }
@@ -40,9 +38,7 @@ pub async fn not_found(req: &Request<'_>) -> Ructe {
 pub async fn unprocessable_entity(req: &Request<'_>) -> Ructe {
     let mut conn = req.guard::<DbConn>().await.unwrap();
     let rockets = req.guard::<PlumeRocket>().await.unwrap();
-    render!(errors::unprocessable_entity_html(
-        &(&mut conn, &rockets).to_context()
-    ))
+    render!(errors::unprocessable_entity_html(&(&mut conn, &rockets).to_context()))
 }
 
 #[catch(500)]

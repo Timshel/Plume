@@ -10,11 +10,11 @@ use activitystreams::{
     base::AnyBase,
     object::kind::ArticleType,
 };
+use futures::executor::ThreadPool;
 use plume_common::activity_pub::{inbox::FromId, LicensedArticle};
 use riker::actors::{Actor, ActorFactoryArgs, ActorRefFactory, Context, Sender, Subscribe, Tell};
 use std::sync::Arc;
 use tracing::{error, info, warn};
-use futures::executor::ThreadPool;
 
 pub struct RemoteFetchActor {
     conn: DbPool,
@@ -22,7 +22,6 @@ pub struct RemoteFetchActor {
 }
 
 impl RemoteFetchActor {
-
     pub fn init(conn: DbPool) {
         let actor = ACTOR_SYS
             .actor_of_args::<RemoteFetchActor, _>("remote-fetch", conn)
@@ -49,10 +48,7 @@ impl Actor for RemoteFetchActor {
                 match self.conn.get() {
                     Ok(conn) => {
                         let mut conn = DbConn(conn);
-                        if user
-                            .get_instance(&mut conn)
-                            .map_or(false, |instance| instance.blocked)
-                        {
+                        if user.get_instance(&mut conn).map_or(false, |instance| instance.blocked) {
                             return;
                         }
                         // Don't call these functions in parallel
@@ -85,7 +81,10 @@ impl Actor for RemoteFetchActor {
 impl ActorFactoryArgs<DbPool> for RemoteFetchActor {
     fn create_args(conn: DbPool) -> Self {
         let pool: ThreadPool = ThreadPool::new().unwrap();
-        Self { conn, pool }
+        Self {
+            conn,
+            pool,
+        }
     }
 }
 
@@ -99,7 +98,8 @@ async fn fetch_and_cache_articles(user: Arc<User>, mut conn: DbConn) {
                     any_base.extend::<LicensedArticle, ArticleType>()
                 }) {
                     Some(Ok(Some(article))) => {
-                        Post::from_activity(&mut conn, article).await
+                        Post::from_activity(&mut conn, article)
+                            .await
                             .expect("Article from remote user couldn't be saved");
                         info!("Fetched article from remote user");
                     }

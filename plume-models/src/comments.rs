@@ -62,11 +62,7 @@ pub struct NewComment {
 impl Comment {
     insert!(comments, NewComment, |inserted, conn| {
         if inserted.ap_url.is_none() {
-            inserted.ap_url = Some(format!(
-                "{}/comment/{}",
-                inserted.get_post(conn)?.ap_url,
-                inserted.id
-            ));
+            inserted.ap_url = Some(format!("{}/comment/{}", inserted.get_post(conn)?.ap_url, inserted.id));
             let _: Comment = inserted.save_changes(conn)?;
         }
         Ok(inserted)
@@ -86,29 +82,17 @@ impl Comment {
 
     pub fn count_local(conn: &mut Connection) -> Result<i64> {
         use crate::schema::users;
-        let local_authors = users::table
-            .filter(users::instance_id.eq(Instance::get_local()?.id))
-            .select(users::id);
-        comments::table
-            .filter(comments::author_id.eq_any(local_authors))
-            .count()
-            .get_result(conn)
-            .map_err(Error::from)
+        let local_authors = users::table.filter(users::instance_id.eq(Instance::get_local()?.id)).select(users::id);
+        comments::table.filter(comments::author_id.eq_any(local_authors)).count().get_result(conn).map_err(Error::from)
     }
 
     pub fn get_responses(&self, conn: &mut Connection) -> Result<Vec<Comment>> {
-        comments::table
-            .filter(comments::in_response_to_id.eq(self.id))
-            .load::<Comment>(conn)
-            .map_err(Error::from)
+        comments::table.filter(comments::in_response_to_id.eq(self.id)).load::<Comment>(conn).map_err(Error::from)
     }
 
     pub fn can_see(&self, conn: &mut Connection, user: Option<&User>) -> bool {
         self.public_visibility
-            || user
-                .as_ref()
-                .map(|u| CommentSeers::can_see(conn, self, u).unwrap_or(false))
-                .unwrap_or(false)
+            || user.as_ref().map(|u| CommentSeers::can_see(conn, self, u).unwrap_or(false)).unwrap_or(false)
     }
 
     pub async fn to_activity(&self, conn: &mut Connection) -> Result<Note> {
@@ -123,22 +107,20 @@ impl Comment {
         let mut note = Note::new();
         let to = vec![PUBLIC_VISIBILITY.parse::<IriString>()?];
 
-        note.set_id(
-            self.ap_url
-                .clone()
-                .unwrap_or_default()
-                .parse::<IriString>()?,
-        );
+        note.set_id(self.ap_url.clone().unwrap_or_default().parse::<IriString>()?);
         note.set_summary(self.spoiler_text.clone());
         note.set_content(html);
-        note.set_in_reply_to(self.in_response_to_id
-            .map(|id| Comment::get(conn, id).map(|comment| comment.ap_url.unwrap_or_default()))
-            .unwrap_or_else(|| Post::get(conn, self.post_id).map(|post| post.ap_url)
-        )?);
+        note.set_in_reply_to(
+            self.in_response_to_id
+                .map(|id| Comment::get(conn, id).map(|comment| comment.ap_url.unwrap_or_default()))
+                .unwrap_or_else(|| Post::get(conn, self.post_id).map(|post| post.ap_url))?,
+        );
         note.set_published(
-            self.creation_date.and_utc().timestamp_nanos_opt()
+            self.creation_date
+                .and_utc()
+                .timestamp_nanos_opt()
                 .and_then(|cd| OffsetDateTime::from_unix_timestamp_nanos(cd.into()).ok())
-                .expect("OffsetDateTime")
+                .expect("OffsetDateTime"),
         );
         note.set_attributed_to(author.into_id().parse::<IriString>()?);
         note.set_many_tos(to);
@@ -159,23 +141,9 @@ impl Comment {
         let note = self.to_activity(conn).await?;
         let note_clone = note.clone();
 
-        let mut act = Create::new(
-            author.into_id().parse::<IriString>()?,
-            Base::retract(note)?.into_generic()?,
-        );
-        act.set_id(
-            format!(
-                "{}/activity",
-                self.ap_url.clone().ok_or(Error::MissingApProperty)?,
-            )
-            .parse::<IriString>()?,
-        );
-        act.set_many_tos(
-            note_clone
-                .to()
-                .iter()
-                .flat_map(|tos| tos.iter().map(|to| to.to_owned())),
-        );
+        let mut act = Create::new(author.into_id().parse::<IriString>()?, Base::retract(note)?.into_generic()?);
+        act.set_id(format!("{}/activity", self.ap_url.clone().ok_or(Error::MissingApProperty)?,).parse::<IriString>()?);
+        act.set_many_tos(note_clone.to().iter().flat_map(|tos| tos.iter().map(|to| to.to_owned())));
         act.set_many_ccs(vec![self.get_author(conn)?.followers_endpoint]);
         Ok(act)
     }
@@ -202,12 +170,7 @@ impl Comment {
 
     pub fn build_delete(&self, conn: &mut Connection) -> Result<Delete> {
         let mut tombstone = Tombstone::new();
-        tombstone.set_id(
-            self.ap_url
-                .as_ref()
-                .ok_or(Error::MissingApProperty)?
-                .parse::<IriString>()?,
-        );
+        tombstone.set_id(self.ap_url.as_ref().ok_or(Error::MissingApProperty)?.parse::<IriString>()?);
 
         let mut act = Delete::new(
             self.get_author(conn)?.into_id().parse::<IriString>()?,
@@ -249,46 +212,35 @@ impl FromId<Connection> for Comment {
                 None => false,
             };
 
-            let public_visibility = is_public(&note.to())
-                || is_public(&note.bto())
-                || is_public(&note.cc())
-                || is_public(&note.bcc());
+            let public_visibility =
+                is_public(&note.to()) || is_public(&note.bto()) || is_public(&note.cc()) || is_public(&note.bcc());
 
             let summary = note.summary().and_then(|summary| summary.to_as_string());
             let sensitive = summary.is_some();
 
             let in_response_to_id = previous_comment.iter().map(|c| c.id).next();
-            let post_id = previous_comment.map(|c| c.post_id).or_else(|_| {
-                Ok(Post::find_by_ap_url(conn, previous_url.as_str())?.id) as Result<i32>
-            })?;
+            let post_id = previous_comment
+                .map(|c| c.post_id)
+                .or_else(|_| Ok(Post::find_by_ap_url(conn, previous_url.as_str())?.id) as Result<i32>)?;
 
             let author_id = User::from_id(
                 conn,
-                &note
-                    .attributed_to()
-                    .ok_or(Error::MissingApProperty)?
-                    .to_as_uri()
-                    .ok_or(Error::MissingApProperty)?,
+                &note.attributed_to().ok_or(Error::MissingApProperty)?.to_as_uri().ok_or(Error::MissingApProperty)?,
                 None,
                 CONFIG.proxy(),
-            ).await.map_err(|(_, e)| e)?.id;
+            )
+            .await
+            .map_err(|(_, e)| e)?
+            .id;
 
             let comm = Comment::insert(
                 conn,
                 NewComment {
                     content: SafeString::new(
-                        &note
-                            .content()
-                            .ok_or(Error::MissingApProperty)?
-                            .to_as_string()
-                            .ok_or(Error::InvalidValue)?,
+                        &note.content().ok_or(Error::MissingApProperty)?.to_as_string().ok_or(Error::InvalidValue)?,
                     ),
                     spoiler_text: summary.unwrap_or_default(),
-                    ap_url: Some(
-                        note.id_unchecked()
-                            .ok_or(Error::MissingApProperty)?
-                            .to_string(),
-                    ),
+                    ap_url: Some(note.id_unchecked().ok_or(Error::MissingApProperty)?.to_string()),
                     in_response_to_id,
                     post_id,
                     author_id,
@@ -337,7 +289,7 @@ impl FromId<Connection> for Comment {
                         receivers_ap_url.insert(user);
                     }
                 }
-            };
+            }
 
             for user in &receivers_ap_url {
                 CommentSeers::insert(
@@ -438,7 +390,13 @@ impl CommentTree {
         let author_image_url = comment_author.as_ref().and_then(|u| u.avatar_url(conn));
         let post = comment.get_post(conn).ok();
 
-        Ok(CommentTree { comment, comment_author, author_image_url, post, responses })
+        Ok(CommentTree {
+            comment,
+            comment_author,
+            author_image_url,
+            post,
+            responses,
+        })
     }
 }
 

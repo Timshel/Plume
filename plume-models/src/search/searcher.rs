@@ -1,16 +1,16 @@
 use crate::{
-    config::SearchTokenizerConfig, instance::Instance, posts::Post, schema::posts,
-    search::query::PlumeQuery, tags::Tag, Connection, Error, Result,
+    config::SearchTokenizerConfig, instance::Instance, posts::Post, schema::posts, search::query::PlumeQuery,
+    tags::Tag, Connection, Error, Result,
 };
 use chrono::{Datelike, Utc};
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use itertools::Itertools;
+use std::collections::HashMap;
 use std::fs;
 use std::{cmp, fs::create_dir_all, io, path::Path, sync::Mutex};
-use std::collections::HashMap;
 use tantivy::{
-    collector::TopDocs, directory::MmapDirectory, schema::*, Index, IndexReader, IndexWriter,
-    ReloadPolicy, error::TantivyError, Term,
+    collector::TopDocs, directory::MmapDirectory, error::TantivyError, schema::*, Index, IndexReader, IndexWriter,
+    ReloadPolicy, Term,
 };
 use tracing::warn;
 use whatlang::{detect as detect_lang, Lang};
@@ -34,9 +34,7 @@ pub struct Searcher {
 impl Searcher {
     pub fn schema() -> Schema {
         let tag_indexing = TextOptions::default().set_indexing_options(
-            TextFieldIndexing::default()
-                .set_tokenizer("tag_tokenizer")
-                .set_index_option(IndexRecordOption::Basic),
+            TextFieldIndexing::default().set_tokenizer("tag_tokenizer").set_index_option(IndexRecordOption::Basic),
         );
 
         let content_indexing = TextOptions::default().set_indexing_options(
@@ -77,14 +75,10 @@ impl Searcher {
             if Self::create(path, tokenizers).is_err() {
                 let backup_path = format!("{}.{}", path.as_ref().display(), Utc::now().timestamp());
                 let backup_path = Path::new(&backup_path);
-                fs::rename(path, backup_path)
-                    .expect("main: error on backing up search index directory for recreating");
+                fs::rename(path, backup_path).expect("main: error on backing up search index directory for recreating");
                 if Self::create(path, tokenizers).is_ok() {
                     if fs::remove_dir_all(backup_path).is_err() {
-                        warn!(
-                            "error on removing backup directory: {}. it remains",
-                            backup_path.display()
-                        );
+                        warn!("error on removing backup directory: {}. it remains", backup_path.display());
                     }
                 } else {
                     panic!("main: error on recreating search index in new index format. remove search index and run `plm search init` manually");
@@ -141,11 +135,7 @@ Then try to restart Plume
             tokenizer_manager.register("property_tokenizer", tokenizers.property_tokenizer);
         } //to please the borrow checker
         Ok(Self {
-            writer: Mutex::new(Some(
-                index
-                    .writer(50_000_000)
-                    .map_err(|_| SearcherError::WriteLockAcquisitionError)?,
-            )),
+            writer: Mutex::new(Some(index.writer(50_000_000).map_err(|_| SearcherError::WriteLockAcquisitionError)?)),
             reader: index
                 .reader_builder()
                 .reload_policy(ReloadPolicy::Manual)
@@ -156,9 +146,8 @@ Then try to restart Plume
     }
 
     pub fn open(path: &dyn AsRef<Path>, tokenizers: &SearchTokenizerConfig) -> Result<Self> {
-        let index =
-            Index::open(MmapDirectory::open(path).map_err(|_| SearcherError::IndexOpeningError)?)
-                .map_err(|_| SearcherError::IndexOpeningError)?;
+        let index = Index::open(MmapDirectory::open(path).map_err(|_| SearcherError::IndexOpeningError)?)
+            .map_err(|_| SearcherError::IndexOpeningError)?;
 
         {
             let tokenizer_manager = index.tokenizers();
@@ -166,31 +155,24 @@ Then try to restart Plume
             tokenizer_manager.register("content_tokenizer", tokenizers.content_tokenizer);
             tokenizer_manager.register("property_tokenizer", tokenizers.property_tokenizer);
         } //to please the borrow checker
-        let writer = index
-            .writer(50_000_000)
-            .map_err(|_| SearcherError::WriteLockAcquisitionError)?;
-
+        let writer = index.writer(50_000_000).map_err(|_| SearcherError::WriteLockAcquisitionError)?;
 
         writer.garbage_collect_files();
 
         Ok(Self {
             writer: Mutex::new(Some(writer)),
-            reader: index
-                .reader_builder()
-                .reload_policy(ReloadPolicy::Manual)
-                .try_into()
-                .map_err(|e| {
-                    if let TantivyError::IoError(err) = e {
-                        if err.kind() == io::ErrorKind::InvalidData {
-                            // Search index was created in older Tantivy format.
-                            SearcherError::InvalidIndexDataError
-                        } else {
-                            SearcherError::IndexCreationError
-                        }
+            reader: index.reader_builder().reload_policy(ReloadPolicy::Manual).try_into().map_err(|e| {
+                if let TantivyError::IoError(err) = e {
+                    if err.kind() == io::ErrorKind::InvalidData {
+                        // Search index was created in older Tantivy format.
+                        SearcherError::InvalidIndexDataError
                     } else {
                         SearcherError::IndexCreationError
                     }
-                })?,
+                } else {
+                    SearcherError::IndexCreationError
+                }
+            })?,
             index,
         })
     }
@@ -255,12 +237,7 @@ Then try to restart Plume
         self.add_document(conn, post)
     }
 
-    pub fn search_document(
-        &self,
-        conn: &mut Connection,
-        query: PlumeQuery,
-        (min, max): (i32, i32),
-    ) -> Vec<Post> {
+    pub fn search_document(&self, conn: &mut Connection, query: PlumeQuery, (min, max): (i32, i32)) -> Vec<Post> {
         let schema = self.index.schema();
         let post_id = schema.get_field("post_id").unwrap();
 
@@ -274,7 +251,7 @@ Then try to restart Plume
             .iter()
             .filter_map(|(_, doc_add)| {
                 let doc = searcher.doc::<TantivyDocument>(*doc_add).ok()?;
-                doc.get_first(post_id)?.as_i64().and_then(|id| Post::get(conn,id as i32).ok())
+                doc.get_first(post_id)?.as_i64().and_then(|id| Post::get(conn, id as i32).ok())
             })
             .collect()
     }
@@ -330,7 +307,7 @@ Then try to restart Plume
                 cursor = post.id;
             }
             if posts.len() < PAGE_SIZE as usize {
-                break Ok(())
+                break Ok(());
             }
         }
     }

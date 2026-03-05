@@ -4,9 +4,8 @@ use serde_derive::{Deserialize, Serialize};
 use std::{convert::TryInto, sync::Mutex};
 use wasm_bindgen::{prelude::*, JsCast, JsValue};
 use web_sys::{
-    console, window, ClipboardEvent, Element, Event, FocusEvent, HtmlAnchorElement, HtmlDocument,
-    HtmlElement, HtmlFormElement, HtmlInputElement, HtmlSelectElement, HtmlTextAreaElement,
-    KeyboardEvent, MouseEvent, Node,
+    console, window, ClipboardEvent, Element, Event, FocusEvent, HtmlAnchorElement, HtmlDocument, HtmlElement,
+    HtmlFormElement, HtmlInputElement, HtmlSelectElement, HtmlTextAreaElement, KeyboardEvent, MouseEvent, Node,
 };
 
 macro_rules! mv {
@@ -23,11 +22,7 @@ fn get_elt_value(id: &'static str) -> String {
     let inp: Option<&HtmlInputElement> = elt.dyn_ref();
     let textarea: Option<&HtmlTextAreaElement> = elt.dyn_ref();
     let select: Option<&HtmlSelectElement> = elt.dyn_ref();
-    inp.map(|i| i.value()).unwrap_or_else(|| {
-        textarea
-            .map(|t| t.value())
-            .unwrap_or_else(|| select.unwrap().value())
-    })
+    inp.map(|i| i.value()).unwrap_or_else(|| textarea.map(|t| t.value()).unwrap_or_else(|| select.unwrap().value()))
 }
 
 fn set_value<S: AsRef<str>>(id: &'static str, val: S) {
@@ -36,9 +31,7 @@ fn set_value<S: AsRef<str>>(id: &'static str, val: S) {
     let textarea: Option<&HtmlTextAreaElement> = elt.dyn_ref();
     let select: Option<&HtmlSelectElement> = elt.dyn_ref();
     inp.map(|i| i.set_value(val.as_ref())).unwrap_or_else(|| {
-        textarea
-            .map(|t| t.set_value(val.as_ref()))
-            .unwrap_or_else(|| select.unwrap().set_value(val.as_ref()))
+        textarea.map(|t| t.set_value(val.as_ref())).unwrap_or_else(|| select.unwrap().set_value(val.as_ref()))
     })
 }
 
@@ -66,14 +59,7 @@ struct AutosaveInformation {
     title: String,
 }
 fn is_basic_editor() -> bool {
-    if let Some(basic_editor) = window()
-        .unwrap()
-        .local_storage()
-        .unwrap()
-        .unwrap()
-        .get("basic-editor")
-        .unwrap()
-    {
+    if let Some(basic_editor) = window().unwrap().local_storage().unwrap().unwrap().get("basic-editor").unwrap() {
         &basic_editor == "true"
     } else {
         false
@@ -83,20 +69,11 @@ fn get_title() -> String {
     if is_basic_editor() {
         get_elt_value("title")
     } else {
-        document()
-            .query_selector("#plume-editor > h1")
-            .unwrap()
-            .unwrap()
-            .dyn_ref::<HtmlElement>()
-            .unwrap()
-            .inner_text()
+        document().query_selector("#plume-editor > h1").unwrap().unwrap().dyn_ref::<HtmlElement>().unwrap().inner_text()
     }
 }
 fn get_autosave_id() -> String {
-    format!(
-        "editor_contents={}",
-        window().unwrap().location().pathname().unwrap()
-    )
+    format!("editor_contents={}", window().unwrap().location().pathname().unwrap())
 }
 fn get_editor_contents() -> String {
     if is_basic_editor() {
@@ -128,13 +105,7 @@ fn get_subtitle() -> String {
     if is_basic_editor() {
         get_elt_value("subtitle")
     } else {
-        document()
-            .query_selector("#plume-editor > h2")
-            .unwrap()
-            .unwrap()
-            .dyn_ref::<HtmlElement>()
-            .unwrap()
-            .inner_text()
+        document().query_selector("#plume-editor > h2").unwrap().unwrap().dyn_ref::<HtmlElement>().unwrap().inner_text()
     }
 }
 fn autosave() {
@@ -148,25 +119,13 @@ fn autosave() {
         cover: get_elt_value("cover"),
     };
     let id = get_autosave_id();
-    match window()
-        .unwrap()
-        .local_storage()
-        .unwrap()
-        .unwrap()
-        .set(&id, &serde_json::to_string(&info).unwrap())
-    {
+    match window().unwrap().local_storage().unwrap().unwrap().set(&id, &serde_json::to_string(&info).unwrap()) {
         Ok(_) => {}
         _ => console::log_1(&"Autosave failed D:".into()),
     }
 }
 fn load_autosave() {
-    if let Ok(Some(autosave_str)) = window()
-        .unwrap()
-        .local_storage()
-        .unwrap()
-        .unwrap()
-        .get(&get_autosave_id())
-    {
+    if let Ok(Some(autosave_str)) = window().unwrap().local_storage().unwrap().unwrap().get(&get_autosave_id()) {
         let autosave_info: AutosaveInformation = serde_json::from_str(&autosave_str).ok().unwrap();
         let date = &JsValue::from_f64(autosave_info.last_saved);
         let message = i18n!(
@@ -187,13 +146,7 @@ fn load_autosave() {
     }
 }
 fn clear_autosave() {
-    window()
-        .unwrap()
-        .local_storage()
-        .unwrap()
-        .unwrap()
-        .remove_item(&get_autosave_id())
-        .unwrap();
+    window().unwrap().local_storage().unwrap().unwrap().remove_item(&get_autosave_id()).unwrap();
     console::log_1(&format!("Saved to {}", &get_autosave_id()).into());
 }
 type TimeoutHandle = i32;
@@ -222,19 +175,11 @@ fn init_widget(
     content: String,
     disable_return: bool,
 ) -> Result<HtmlElement, EditorError> {
-    let widget = placeholder(
-        make_editable(tag).dyn_into::<HtmlElement>().unwrap(),
-        &placeholder_text,
-    );
+    let widget = placeholder(make_editable(tag).dyn_into::<HtmlElement>().unwrap(), &placeholder_text);
     if !content.is_empty() {
-        widget
-            .dataset()
-            .set("edited", "true")
-            .map_err(|_| EditorError::DOMError)?;
+        widget.dataset().set("edited", "true").map_err(|_| EditorError::DOMError)?;
     }
-    widget
-        .append_child(&document().create_text_node(&content))
-        .map_err(|_| EditorError::DOMError)?;
+    widget.append_child(&document().create_text_node(&content)).map_err(|_| EditorError::DOMError)?;
     if disable_return {
         let callback = Closure::wrap(Box::new(no_return) as Box<dyn FnMut(KeyboardEvent)>);
         widget
@@ -243,9 +188,7 @@ fn init_widget(
         callback.forget();
     }
 
-    parent
-        .append_child(&widget)
-        .map_err(|_| EditorError::DOMError)?;
+    parent.append_child(&widget).map_err(|_| EditorError::DOMError)?;
     // We need to do that to make sure the placeholder is correctly rendered
     widget.focus().map_err(|_| EditorError::DOMError)?;
     widget.blur().map_err(|_| EditorError::DOMError)?;
@@ -269,8 +212,7 @@ fn filter_paste(elt: &HtmlElement) {
             }
         }
     }) as Box<dyn FnMut(ClipboardEvent)>);
-    elt.add_event_listener_with_callback("paste", insert_text.as_ref().unchecked_ref())
-        .unwrap();
+    elt.add_event_listener_with_callback("paste", insert_text.as_ref().unchecked_ref()).unwrap();
     insert_text.forget();
 }
 
@@ -294,45 +236,24 @@ pub fn init() -> Result<(), EditorError> {
     {
         if let Some(editor) = document().get_element_by_id("plume-fallback-editor") {
             if let Ok(Some(title_label)) = document().query_selector("label[for=title]") {
-                let editor_button = document()
-                    .create_element("a")
-                    .map_err(|_| EditorError::DOMError)?;
-                editor_button
-                    .dyn_ref::<HtmlAnchorElement>()
-                    .unwrap()
-                    .set_href("#");
+                let editor_button = document().create_element("a").map_err(|_| EditorError::DOMError)?;
+                editor_button.dyn_ref::<HtmlAnchorElement>().unwrap().set_href("#");
                 let disable_basic_editor = Closure::wrap(Box::new(|_| {
                     let window = window().unwrap();
-                    if window
-                        .local_storage()
-                        .unwrap()
-                        .unwrap()
-                        .set("basic-editor", "false")
-                        .is_err()
-                    {
+                    if window.local_storage().unwrap().unwrap().set("basic-editor", "false").is_err() {
                         console::log_1(&"Failed to write into local storage".into());
                     }
                     window.history().unwrap().go_with_delta(0).ok(); // refresh
-                })
-                    as Box<dyn FnMut(MouseEvent)>);
+                }) as Box<dyn FnMut(MouseEvent)>);
                 editor_button
-                    .add_event_listener_with_callback(
-                        "click",
-                        disable_basic_editor.as_ref().unchecked_ref(),
-                    )
+                    .add_event_listener_with_callback("click", disable_basic_editor.as_ref().unchecked_ref())
                     .map_err(|_| EditorError::DOMError)?;
                 disable_basic_editor.forget();
                 editor_button
-                    .append_child(
-                        &document().create_text_node(&i18n!(CATALOG, "Open the rich text editor")),
-                    )
+                    .append_child(&document().create_text_node(&i18n!(CATALOG, "Open the rich text editor")))
                     .map_err(|_| EditorError::DOMError)?;
-                editor
-                    .insert_before(&editor_button, Some(&title_label))
-                    .ok();
-                let callback = Closure::wrap(
-                    Box::new(|_| autosave_debounce()) as Box<dyn FnMut(KeyboardEvent)>
-                );
+                editor.insert_before(&editor_button, Some(&title_label)).ok();
+                let callback = Closure::wrap(Box::new(|_| autosave_debounce()) as Box<dyn FnMut(KeyboardEvent)>);
                 document()
                     .get_element_by_id("editor-content")
                     .unwrap()
@@ -362,9 +283,7 @@ fn init_editor() -> Result<(), EditorError> {
             return Ok(());
         }
         let old_ed = old_ed.unwrap();
-        let old_title = document()
-            .get_element_by_id("plume-editor-title")
-            .ok_or(EditorError::NoneError)?;
+        let old_title = document().get_element_by_id("plume-editor-title").ok_or(EditorError::NoneError)?;
         old_ed
             .dyn_ref::<HtmlElement>()
             .unwrap()
@@ -384,13 +303,7 @@ fn init_editor() -> Result<(), EditorError> {
         let content_val = get_elt_value("editor-content");
         // And pre-fill the new editor with this values
         let title = init_widget(&ed, "h1", i18n!(CATALOG, "Title"), title_val, true)?;
-        let subtitle = init_widget(
-            &ed,
-            "h2",
-            i18n!(CATALOG, "Subtitle, or summary"),
-            subtitle_val,
-            true,
-        )?;
+        let subtitle = init_widget(&ed, "h2", i18n!(CATALOG, "Subtitle, or summary"), subtitle_val, true)?;
         let content = init_widget(
             &ed,
             "article",
@@ -449,23 +362,10 @@ fn init_editor() -> Result<(), EditorError> {
 fn setup_close_button() {
     if let Some(button) = document().get_element_by_id("close-editor") {
         let close_editor = Closure::wrap(Box::new(|_| {
-            window()
-                .unwrap()
-                .local_storage()
-                .unwrap()
-                .unwrap()
-                .set("basic-editor", "true")
-                .unwrap();
-            window()
-                .unwrap()
-                .history()
-                .unwrap()
-                .go_with_delta(0)
-                .unwrap(); // Refresh the page
+            window().unwrap().local_storage().unwrap().unwrap().set("basic-editor", "true").unwrap();
+            window().unwrap().history().unwrap().go_with_delta(0).unwrap(); // Refresh the page
         }) as Box<dyn FnMut(MouseEvent)>);
-        button
-            .add_event_listener_with_callback("click", close_editor.as_ref().unchecked_ref())
-            .unwrap();
+        button.add_event_listener_with_callback("click", close_editor.as_ref().unchecked_ref()).unwrap();
         close_editor.forget();
     }
 }
@@ -478,18 +378,10 @@ fn show_errors() {
         let errors = document.query_selector_all("p.error").unwrap();
         for i in 0..errors.length() {
             let error = errors.get(i).unwrap();
-            error
-                .parent_element()
-                .unwrap()
-                .remove_child(&error)
-                .unwrap();
+            error.parent_element().unwrap().remove_child(&error).unwrap();
             let _ = list.append_child(&error);
         }
-        header
-            .parent_element()
-            .unwrap()
-            .insert_before(&list, header.next_sibling().as_ref())
-            .unwrap();
+        header.parent_element().unwrap().insert_before(&list, header.next_sibling().as_ref()).unwrap();
     }
 }
 
@@ -500,58 +392,29 @@ fn init_popup(
     old_ed: &Element,
 ) -> Result<Element, EditorError> {
     let document = document();
-    let popup = document
-        .create_element("div")
-        .map_err(|_| EditorError::DOMError)?;
-    popup
-        .class_list()
-        .add_1("popup")
-        .map_err(|_| EditorError::DOMError)?;
-    popup
-        .set_attribute("id", "publish-popup")
-        .map_err(|_| EditorError::DOMError)?;
+    let popup = document.create_element("div").map_err(|_| EditorError::DOMError)?;
+    popup.class_list().add_1("popup").map_err(|_| EditorError::DOMError)?;
+    popup.set_attribute("id", "publish-popup").map_err(|_| EditorError::DOMError)?;
 
-    let tags = get_elt_value("tags")
-        .split(',')
-        .map(str::trim)
-        .map(str::to_string)
-        .collect::<Vec<_>>();
+    let tags = get_elt_value("tags").split(',').map(str::trim).map(str::to_string).collect::<Vec<_>>();
     let license = get_elt_value("license");
     make_input(&i18n!(CATALOG, "Tags"), "popup-tags", &popup).set_value(&tags.join(", "));
     make_input(&i18n!(CATALOG, "License"), "popup-license", &popup).set_value(&license);
 
-    let cover_label = document
-        .create_element("label")
-        .map_err(|_| EditorError::DOMError)?;
+    let cover_label = document.create_element("label").map_err(|_| EditorError::DOMError)?;
     cover_label
         .append_child(&document.create_text_node(&i18n!(CATALOG, "Cover")))
         .map_err(|_| EditorError::DOMError)?;
-    cover_label
-        .set_attribute("for", "cover")
-        .map_err(|_| EditorError::DOMError)?;
-    let cover = document
-        .get_element_by_id("cover")
-        .ok_or(EditorError::NoneError)?;
-    cover
-        .parent_element()
-        .ok_or(EditorError::NoneError)?
-        .remove_child(&cover)
-        .ok();
-    popup
-        .append_child(&cover_label)
-        .map_err(|_| EditorError::DOMError)?;
-    popup
-        .append_child(&cover)
-        .map_err(|_| EditorError::DOMError)?;
+    cover_label.set_attribute("for", "cover").map_err(|_| EditorError::DOMError)?;
+    let cover = document.get_element_by_id("cover").ok_or(EditorError::NoneError)?;
+    cover.parent_element().ok_or(EditorError::NoneError)?.remove_child(&cover).ok();
+    popup.append_child(&cover_label).map_err(|_| EditorError::DOMError)?;
+    popup.append_child(&cover).map_err(|_| EditorError::DOMError)?;
 
     if let Some(draft_checkbox) = document.get_element_by_id("draft") {
         let draft_checkbox = draft_checkbox.dyn_ref::<HtmlInputElement>().unwrap();
-        let draft_label = document
-            .create_element("label")
-            .map_err(|_| EditorError::DOMError)?;
-        draft_label
-            .set_attribute("for", "popup-draft")
-            .map_err(|_| EditorError::DOMError)?;
+        let draft_label = document.create_element("label").map_err(|_| EditorError::DOMError)?;
+        draft_label.set_attribute("for", "popup-draft").map_err(|_| EditorError::DOMError)?;
 
         let draft = document.create_element("input").unwrap();
         draft.set_id("popup-draft");
@@ -560,23 +423,15 @@ fn init_popup(
         draft.set_type("checkbox");
         draft.set_checked(draft_checkbox.checked());
 
-        draft_label
-            .append_child(draft)
-            .map_err(|_| EditorError::DOMError)?;
+        draft_label.append_child(draft).map_err(|_| EditorError::DOMError)?;
         draft_label
             .append_child(&document.create_text_node(&i18n!(CATALOG, "This is a draft")))
             .map_err(|_| EditorError::DOMError)?;
-        popup
-            .append_child(&draft_label)
-            .map_err(|_| EditorError::DOMError)?;
+        popup.append_child(&draft_label).map_err(|_| EditorError::DOMError)?;
     }
 
-    let button = document
-        .create_element("input")
-        .map_err(|_| EditorError::DOMError)?;
-    button
-        .append_child(&document.create_text_node(&i18n!(CATALOG, "Publish")))
-        .map_err(|_| EditorError::DOMError)?;
+    let button = document.create_element("input").map_err(|_| EditorError::DOMError)?;
+    button.append_child(&document.create_text_node(&i18n!(CATALOG, "Publish"))).map_err(|_| EditorError::DOMError)?;
     let button = button.dyn_ref::<HtmlInputElement>().unwrap();
     button.set_type("submit");
     button.set_value(&i18n!(CATALOG, "Publish"));
@@ -626,36 +481,20 @@ fn init_popup(
         .add_event_listener_with_callback("click", callback.as_ref().unchecked_ref())
         .map_err(|_| EditorError::DOMError)?;
     callback.forget();
-    popup
-        .append_child(button)
-        .map_err(|_| EditorError::DOMError)?;
+    popup.append_child(button).map_err(|_| EditorError::DOMError)?;
 
-    document
-        .body()
-        .ok_or(EditorError::NoneError)?
-        .append_child(&popup)
-        .map_err(|_| EditorError::DOMError)?;
+    document.body().ok_or(EditorError::NoneError)?.append_child(&popup).map_err(|_| EditorError::DOMError)?;
     Ok(popup)
 }
 
 fn init_popup_bg() -> Result<Element, EditorError> {
-    let bg = document()
-        .create_element("div")
-        .map_err(|_| EditorError::DOMError)?;
-    bg.class_list()
-        .add_1("popup-bg")
-        .map_err(|_| EditorError::DOMError)?;
-    bg.set_attribute("id", "popup-bg")
-        .map_err(|_| EditorError::DOMError)?;
+    let bg = document().create_element("div").map_err(|_| EditorError::DOMError)?;
+    bg.class_list().add_1("popup-bg").map_err(|_| EditorError::DOMError)?;
+    bg.set_attribute("id", "popup-bg").map_err(|_| EditorError::DOMError)?;
 
-    document()
-        .body()
-        .ok_or(EditorError::NoneError)?
-        .append_child(&bg)
-        .map_err(|_| EditorError::DOMError)?;
+    document().body().ok_or(EditorError::NoneError)?.append_child(&bg).map_err(|_| EditorError::DOMError)?;
     let callback = Closure::wrap(Box::new(|_| close_popup()) as Box<dyn FnMut(MouseEvent)>);
-    bg.add_event_listener_with_callback("click", callback.as_ref().unchecked_ref())
-        .unwrap();
+    bg.add_event_listener_with_callback("click", callback.as_ref().unchecked_ref()).unwrap();
     callback.forget();
     Ok(bg)
 }
@@ -663,10 +502,7 @@ fn init_popup_bg() -> Result<Element, EditorError> {
 fn chars_left(selector: &str, content: &HtmlElement) -> Option<i32> {
     match document().query_selector(selector) {
         Ok(Some(form)) => form.dyn_ref::<HtmlElement>().and_then(|form| {
-            if let Some(len) = form
-                .get_attribute("content-size")
-                .and_then(|s| s.parse::<i32>().ok())
-            {
+            if let Some(len) = form.get_attribute("content-size").and_then(|s| s.parse::<i32>().ok()) {
                 (encode_uri_component(&content.inner_html())
                     .replace("%20", "+")
                     .replace("%0A", "%0D0A")
@@ -693,9 +529,7 @@ fn close_popup() {
 fn make_input(label_text: &str, name: &'static str, form: &Element) -> HtmlInputElement {
     let document = document();
     let label = document.create_element("label").unwrap();
-    label
-        .append_child(&document.create_text_node(label_text))
-        .unwrap();
+    label.append_child(&document.create_text_node(label_text)).unwrap();
     label.set_attribute("for", name).unwrap();
 
     let inp = document.create_element("input").unwrap();
@@ -709,11 +543,8 @@ fn make_input(label_text: &str, name: &'static str, form: &Element) -> HtmlInput
 }
 
 fn make_editable(tag: &'static str) -> Element {
-    let elt = document()
-        .create_element(tag)
-        .expect("Couldn't create editable element");
-    elt.set_attribute("contenteditable", "true")
-        .expect("Couldn't make the element editable");
+    let elt = document().create_element(tag).expect("Couldn't create editable element");
+    elt.set_attribute("contenteditable", "true").expect("Couldn't make the element editable");
     elt
 }
 
@@ -726,8 +557,7 @@ fn placeholder(elt: HtmlElement, text: &str) -> HtmlElement {
             clear_children(&elt);
         }
     })) as Box<dyn FnMut(FocusEvent)>);
-    elt.add_event_listener_with_callback("focus", callback.as_ref().unchecked_ref())
-        .unwrap();
+    elt.add_event_listener_with_callback("focus", callback.as_ref().unchecked_ref()).unwrap();
     callback.forget();
     let callback = Closure::wrap(Box::new(mv!(elt => move |_: Event| {
         if elt.dataset().get("edited").unwrap().as_str() != "true" {
@@ -739,8 +569,7 @@ fn placeholder(elt: HtmlElement, text: &str) -> HtmlElement {
             elt.append_child(&ph).unwrap();
         }
     })) as Box<dyn FnMut(Event)>);
-    elt.add_event_listener_with_callback("blur", callback.as_ref().unchecked_ref())
-        .unwrap();
+    elt.add_event_listener_with_callback("blur", callback.as_ref().unchecked_ref()).unwrap();
     callback.forget();
     let callback = Closure::wrap(Box::new(mv!(elt => move |_: KeyboardEvent| {
         elt.dataset().set("edited", if elt.inner_text().trim_matches('\n').is_empty() {
@@ -749,8 +578,7 @@ fn placeholder(elt: HtmlElement, text: &str) -> HtmlElement {
             "true"
         }).expect("Couldn't update edition state");
     })) as Box<dyn FnMut(KeyboardEvent)>);
-    elt.add_event_listener_with_callback("keyup", callback.as_ref().unchecked_ref())
-        .unwrap();
+    elt.add_event_listener_with_callback("keyup", callback.as_ref().unchecked_ref()).unwrap();
     callback.forget();
     elt
 }

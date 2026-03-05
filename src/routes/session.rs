@@ -1,8 +1,8 @@
 use crate::routes::RespondOrRedirect;
 use lettre::Transport;
 use rocket::{
-    http::{Cookie, CookieJar, SameSite},
     form::Form,
+    http::{Cookie, CookieJar, SameSite},
     response::{Flash, Redirect},
     State,
 };
@@ -60,38 +60,23 @@ pub fn create(
         let mut err = ValidationError::new("invalid_login");
         err.message = Some(Cow::from("Invalid username, or password"));
         errors.add("email_or_name", err);
-        return render!(session::login_html(
-            &(&mut conn, &rockets).to_context(),
-            None,
-            &*form,
-            errors
-        ))
-        .into();
+        return render!(session::login_html(&(&mut conn, &rockets).to_context(), None, &*form, errors)).into();
     };
 
-    cookies.add_private(
-        Cookie::build((AUTH_COOKIE, user_id))
-            .same_site(SameSite::Lax)
-            .build(),
-    );
+    cookies.add_private(Cookie::build((AUTH_COOKIE, user_id)).same_site(SameSite::Lax).build());
     let destination: String = rockets
         .flash_msg
         .clone()
-        .and_then(
-            |(name, msg)| {
-                if name == "callback" {
-                    Some(msg)
-                } else {
-                    None
-                }
-            },
-        )
+        .and_then(|(name, msg)| {
+            if name == "callback" {
+                Some(msg)
+            } else {
+                None
+            }
+        })
         .unwrap_or_else(|| "/".to_owned());
 
-    Flash::success(
-        Redirect::to(destination),
-        i18n!(&rockets.intl.catalog, "You are now connected."),
-    ).into()
+    Flash::success(Redirect::to(destination), i18n!(&rockets.intl.catalog, "You are now connected.")).into()
 }
 
 #[get("/logout")]
@@ -99,10 +84,7 @@ pub fn delete(cookies: &CookieJar<'_>, intl: I18n) -> Flash<Redirect> {
     if let Some(cookie) = cookies.get_private(AUTH_COOKIE) {
         cookies.remove_private(cookie);
     }
-    Flash::success(
-        Redirect::to("/"),
-        i18n!(intl.catalog, "You are now logged off."),
-    )
+    Flash::success(Redirect::to("/"), i18n!(intl.catalog, "You are now logged off."))
 }
 
 #[derive(Clone)]
@@ -142,8 +124,8 @@ pub fn password_reset_request(
     rockets: PlumeRocket,
 ) -> Ructe {
     if User::find_by_email(&mut conn, &form.email).is_ok() {
-        let token = PasswordResetRequest::insert(&mut conn, &form.email)
-            .expect("password_reset_request::insert: error");
+        let token =
+            PasswordResetRequest::insert(&mut conn, &form.email).expect("password_reset_request::insert: error");
 
         let url = format!("https://{}/password-reset/{}", CONFIG.base_url, token);
         if let Some(message) = build_mail(
@@ -152,23 +134,15 @@ pub fn password_reset_request(
             i18n!(rockets.intl.catalog, "Here is the link to reset your password: {0}"; url),
         ) {
             if let Some(ref mut mail) = *mail.lock().unwrap() {
-                mail.send(&message)
-                    .map_err(|_| warn!("Couldn't send password reset email"))
-                    .ok();
+                mail.send(&message).map_err(|_| warn!("Couldn't send password reset email")).ok();
             }
         }
     }
-    render!(session::password_reset_request_ok_html(
-        &(&mut conn, &rockets).to_context()
-    ))
+    render!(session::password_reset_request_ok_html(&(&mut conn, &rockets).to_context()))
 }
 
 #[get("/password-reset/<token>")]
-pub fn password_reset_form(
-    token: &str,
-    mut conn: DbConn,
-    rockets: PlumeRocket,
-) -> Result<Ructe, Ructe> {
+pub fn password_reset_form(token: &str, mut conn: DbConn, rockets: PlumeRocket) -> Result<Ructe, Ructe> {
     PasswordResetRequest::find_by_token(&mut conn, token)
         .map_err(|err| password_reset_error_response(err, &mut conn, &rockets))?;
 
@@ -180,11 +154,7 @@ pub fn password_reset_form(
 }
 
 #[derive(FromForm, Default, Validate)]
-#[validate(schema(
-    function = "passwords_match",
-    skip_on_field_errors = false,
-    message = "Passwords are not matching"
-))]
+#[validate(schema(function = "passwords_match", skip_on_field_errors = false, message = "Passwords are not matching"))]
 pub struct NewPasswordForm {
     pub password: String,
     pub password_confirmation: String,
@@ -205,13 +175,8 @@ pub fn password_reset(
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> Result<Flash<Redirect>, Ructe> {
-    form.validate().map_err(|err| {
-        render!(session::password_reset_html(
-            &(&mut conn, &rockets).to_context(),
-            &form,
-            err
-        ))
-    })?;
+    form.validate()
+        .map_err(|err| render!(session::password_reset_html(&(&mut conn, &rockets).to_context(), &form, err)))?;
 
     PasswordResetRequest::find_and_delete_by_token(&mut conn, token)
         .and_then(|request| User::find_by_email(&mut conn, &request.email))
@@ -220,18 +185,13 @@ pub fn password_reset(
 
     Ok(Flash::success(
         Redirect::to(uri!(new(m = _))),
-        i18n!(
-            rockets.intl.catalog,
-            "Your password was successfully reset."
-        ),
+        i18n!(rockets.intl.catalog, "Your password was successfully reset."),
     ))
 }
 
 fn password_reset_error_response(err: Error, conn: &mut DbConn, rockets: &PlumeRocket) -> Ructe {
     match err {
-        Error::Expired => render!(session::password_reset_request_expired_html(
-            &(conn, rockets).to_context()
-        )),
+        Error::Expired => render!(session::password_reset_request_expired_html(&(conn, rockets).to_context())),
         _ => render!(errors::not_found_html(&(conn, rockets).to_context())),
     }
 }

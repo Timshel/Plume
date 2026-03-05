@@ -1,9 +1,9 @@
 #![warn(clippy::too_many_arguments)]
+use rocket::serde::json::Json;
 use rocket::{
     request::Request,
     response::{self, Responder},
 };
-use rocket::serde::json::Json;
 
 use plume_common::utils::random_hex;
 use plume_models::{api_tokens::*, apps::App, db_conn::DbConn, users::User, Error};

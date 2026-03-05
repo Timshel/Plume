@@ -43,14 +43,12 @@ where
     type Error = ();
 
     async fn from_request(request: &'r Request<'_>) -> request::Outcome<Authorization<A, S>, ()> {
-        request.guard::<ApiToken>().await
-            .map_error(|_| (Status::Unauthorized, ()))
-            .and_then(|token| {
-                if token.can(A::to_str(), S::to_str()) {
-                    Outcome::Success(Authorization(token, PhantomData))
-                } else {
-                    Outcome::Error((Status::Unauthorized, ()))
-                }
-            })
+        request.guard::<ApiToken>().await.map_error(|_| (Status::Unauthorized, ())).and_then(|token| {
+            if token.can(A::to_str(), S::to_str()) {
+                Outcome::Success(Authorization(token, PhantomData))
+            } else {
+                Outcome::Error((Status::Unauthorized, ()))
+            }
+        })
     }
 }

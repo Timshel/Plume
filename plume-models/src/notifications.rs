@@ -76,18 +76,10 @@ impl Notification {
     }
 
     pub fn count_for_user(conn: &mut Connection, user: &User) -> Result<i64> {
-        notifications::table
-            .filter(notifications::user_id.eq(user.id))
-            .count()
-            .get_result(conn)
-            .map_err(Error::from)
+        notifications::table.filter(notifications::user_id.eq(user.id)).count().get_result(conn).map_err(Error::from)
     }
 
-    pub fn page_for_user(
-        conn: &mut Connection,
-        user: &User,
-        (min, max): (i32, i32),
-    ) -> Result<Vec<Notification>> {
+    pub fn page_for_user(conn: &mut Connection, user: &User, (min, max): (i32, i32)) -> Result<Vec<Notification>> {
         notifications::table
             .filter(notifications::user_id.eq(user.id))
             .order_by(notifications::creation_date.desc())
@@ -107,23 +99,16 @@ impl Notification {
 
     pub fn get_url(&self, conn: &mut Connection) -> Option<String> {
         match self.kind.as_ref() {
-            notification_kind::COMMENT => self
-                .get_post(conn)
-                .and_then(|p| Some(format!("{}#comment-{}", p.url(conn).ok()?, self.object_id))),
+            notification_kind::COMMENT => {
+                self.get_post(conn).and_then(|p| Some(format!("{}#comment-{}", p.url(conn).ok()?, self.object_id)))
+            }
             notification_kind::FOLLOW => Some(format!("/@/{}/", self.get_actor(conn).ok()?.fqn)),
             notification_kind::MENTION => Mention::get(conn, self.object_id)
                 .and_then(|mention| {
-                    mention
-                        .get_post(conn)
-                        .and_then(|p| p.url(conn))
-                        .or_else(|_| {
-                            let comment = mention.get_comment(conn)?;
-                            Ok(format!(
-                                "{}#comment-{}",
-                                comment.get_post(conn)?.url(conn)?,
-                                comment.id
-                            ))
-                        })
+                    mention.get_post(conn).and_then(|p| p.url(conn)).or_else(|_| {
+                        let comment = mention.get_comment(conn)?;
+                        Ok(format!("{}#comment-{}", comment.get_post(conn)?.url(conn)?, comment.id))
+                    })
                 })
                 .ok(),
             _ => None,
@@ -132,15 +117,15 @@ impl Notification {
 
     pub fn get_post(&self, conn: &mut Connection) -> Option<Post> {
         match self.kind.as_ref() {
-            notification_kind::COMMENT => Comment::get(conn, self.object_id)
-                .and_then(|comment| comment.get_post(conn))
-                .ok(),
-            notification_kind::LIKE => Like::get(conn, self.object_id)
-                .and_then(|like| Post::get(conn, like.post_id))
-                .ok(),
-            notification_kind::RESHARE => Reshare::get(conn, self.object_id)
-                .and_then(|reshare| reshare.get_post(conn))
-                .ok(),
+            notification_kind::COMMENT => {
+                Comment::get(conn, self.object_id).and_then(|comment| comment.get_post(conn)).ok()
+            }
+            notification_kind::LIKE => {
+                Like::get(conn, self.object_id).and_then(|like| Post::get(conn, like.post_id)).ok()
+            }
+            notification_kind::RESHARE => {
+                Reshare::get(conn, self.object_id).and_then(|reshare| reshare.get_post(conn)).ok()
+            }
             _ => None,
         }
     }
@@ -155,7 +140,7 @@ impl Notification {
             notification_kind::LIKE => {
                 let like = Like::get(conn, self.object_id)?;
                 User::get(conn, like.user_id)?
-            },
+            }
             notification_kind::MENTION => Mention::get(conn, self.object_id)?.get_user(conn)?,
             notification_kind::RESHARE => Reshare::get(conn, self.object_id)?.get_user(conn)?,
             _ => unreachable!("Notification::get_actor: Unknow type"),
@@ -174,9 +159,6 @@ impl Notification {
     }
 
     pub fn delete(&self, conn: &mut Connection) -> Result<()> {
-        diesel::delete(self)
-            .execute(conn)
-            .map(|_| ())
-            .map_err(Error::from)
+        diesel::delete(self).execute(conn).map(|_| ()).map_err(Error::from)
     }
 }

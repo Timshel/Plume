@@ -48,18 +48,30 @@ impl_into_inbox_result! {
 #[async_recursion::async_recursion]
 pub async fn inbox(conn: &mut Connection, act: serde_json::Value) -> Result<InboxResult, Error> {
     Inbox::handle(conn, act)
-        .with::<User, Announce, Post>(CONFIG.proxy()).await
-        .with::<User, Create, Comment>(CONFIG.proxy()).await
-        .with::<User, Create, Post>(CONFIG.proxy()).await
-        .with::<User, Delete, Comment>(CONFIG.proxy()).await
-        .with::<User, Delete, Post>(CONFIG.proxy()).await
-        .with::<User, Delete, User>(CONFIG.proxy()).await
-        .with::<User, Follow, User>(CONFIG.proxy()).await
-        .with::<User, Like, Post>(CONFIG.proxy()).await
-        .with::<User, Undo, Reshare>(CONFIG.proxy()).await
-        .with::<User, Undo, follows::Follow>(CONFIG.proxy()).await
-        .with::<User, Undo, likes::Like>(CONFIG.proxy()).await
-        .with::<User, Update, PostUpdate>(CONFIG.proxy()).await
+        .with::<User, Announce, Post>(CONFIG.proxy())
+        .await
+        .with::<User, Create, Comment>(CONFIG.proxy())
+        .await
+        .with::<User, Create, Post>(CONFIG.proxy())
+        .await
+        .with::<User, Delete, Comment>(CONFIG.proxy())
+        .await
+        .with::<User, Delete, Post>(CONFIG.proxy())
+        .await
+        .with::<User, Delete, User>(CONFIG.proxy())
+        .await
+        .with::<User, Follow, User>(CONFIG.proxy())
+        .await
+        .with::<User, Like, Post>(CONFIG.proxy())
+        .await
+        .with::<User, Undo, Reshare>(CONFIG.proxy())
+        .await
+        .with::<User, Undo, follows::Follow>(CONFIG.proxy())
+        .await
+        .with::<User, Undo, likes::Like>(CONFIG.proxy())
+        .await
+        .with::<User, Update, PostUpdate>(CONFIG.proxy())
+        .await
         .done()
 }
 
@@ -72,13 +84,7 @@ pub(crate) mod tests {
     use crate::tests::db;
     use diesel::Connection;
 
-    pub fn fill_database(
-        conn: &DbConn,
-    ) -> (
-        Vec<crate::posts::Post>,
-        Vec<crate::users::User>,
-        Vec<crate::blogs::Blog>,
-    ) {
+    pub fn fill_database(conn: &DbConn) -> (Vec<crate::posts::Post>, Vec<crate::users::User>, Vec<crate::blogs::Blog>) {
         use crate::post_authors::*;
         use crate::posts::*;
 
@@ -191,9 +197,7 @@ pub(crate) mod tests {
 
             assert!(matches!(
                 super::inbox(&conn, act),
-                Err(super::Error::Inbox(
-                    box plume_common::activity_pub::inbox::InboxError::InvalidObject(_),
-                ))
+                Err(super::Error::Inbox(box plume_common::activity_pub::inbox::InboxError::InvalidObject(_)))
             ));
             Ok(())
         });
@@ -222,9 +226,7 @@ pub(crate) mod tests {
 
             assert!(matches!(
                 super::inbox(&conn, act),
-                Err(super::Error::Inbox(
-                    box plume_common::activity_pub::inbox::InboxError::InvalidObject(_),
-                ))
+                Err(super::Error::Inbox(box plume_common::activity_pub::inbox::InboxError::InvalidObject(_)))
             ));
             Ok(())
         });
@@ -250,9 +252,7 @@ pub(crate) mod tests {
 
             assert!(matches!(
                 super::inbox(&conn, act),
-                Err(super::Error::Inbox(
-                    box plume_common::activity_pub::inbox::InboxError::InvalidObject(_),
-                ))
+                Err(super::Error::Inbox(box plume_common::activity_pub::inbox::InboxError::InvalidObject(_)))
             ));
             Ok(())
         });
@@ -325,9 +325,7 @@ pub(crate) mod tests {
 
             assert!(matches!(
                 super::inbox(&conn, act),
-                Err(super::Error::Inbox(
-                    box plume_common::activity_pub::inbox::InboxError::InvalidObject(_),
-                ))
+                Err(super::Error::Inbox(box plume_common::activity_pub::inbox::InboxError::InvalidObject(_)))
             ));
             Ok(())
         });
@@ -363,9 +361,7 @@ pub(crate) mod tests {
 
             assert!(matches!(
                 super::inbox(&conn, act),
-                Err(super::Error::Inbox(
-                    box plume_common::activity_pub::inbox::InboxError::InvalidObject(_),
-                ))
+                Err(super::Error::Inbox(box plume_common::activity_pub::inbox::InboxError::InvalidObject(_)))
             ));
             Ok(())
         });
@@ -398,9 +394,7 @@ pub(crate) mod tests {
 
             assert!(matches!(
                 super::inbox(&conn, act),
-                Err(super::Error::Inbox(
-                    box plume_common::activity_pub::inbox::InboxError::InvalidObject(_),
-                ))
+                Err(super::Error::Inbox(box plume_common::activity_pub::inbox::InboxError::InvalidObject(_)))
             ));
             Ok(())
         });

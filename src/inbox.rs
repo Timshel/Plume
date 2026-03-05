@@ -3,11 +3,9 @@ use plume_common::activity_pub::{
     request::Digest,
     sign::{verify_http_headers, Signable},
 };
-use plume_models::{
-    db_conn::DbConn, headers::Headers, inbox::inbox, instance::Instance, users::User, Error, CONFIG,
-};
+use plume_models::{db_conn::DbConn, headers::Headers, inbox::inbox, instance::Instance, users::User, Error, CONFIG};
+use rocket::serde::json::Error as JsonError;
 use rocket::{data::*, http::Status, response::status, Request};
-use rocket::serde::json::{Error as JsonError};
 use serde::Deserialize;
 use tracing::warn;
 
@@ -25,8 +23,8 @@ pub async fn handle_incoming(
         .or_else(|| activity["actor"]["id"].as_str())
         .ok_or(status::BadRequest("Missing actor id for activity"))?;
 
-    let actor = User::from_id(&mut conn, actor_id, None, CONFIG.proxy()).await
-        .expect("instance::shared_inbox: user error");
+    let actor =
+        User::from_id(&mut conn, actor_id, None, CONFIG.proxy()).await.expect("instance::shared_inbox: user error");
     if !verify_http_headers(&actor, &headers.0, &sig).is_secure() && !act.clone().verify(&actor) {
         // maybe we just know an old key?
         actor
@@ -40,17 +38,12 @@ pub async fn handle_incoming(
                 }
             })
             .map_err(|_| {
-                warn!(
-                    "Rejected invalid activity supposedly from {}, with headers {:?}",
-                    actor.username, headers.0
-                );
+                warn!("Rejected invalid activity supposedly from {}, with headers {:?}", actor.username, headers.0);
                 status::BadRequest("Invalid signature")
             })?;
     }
 
-    if Instance::is_blocked(&mut conn, actor_id)
-        .map_err(|_| status::BadRequest("Can't tell if instance is blocked"))?
-    {
+    if Instance::is_blocked(&mut conn, actor_id).map_err(|_| status::BadRequest("Can't tell if instance is blocked"))? {
         return Ok(String::new());
     }
 
@@ -68,7 +61,7 @@ const JSON_LIMIT: ByteUnit = ByteUnit::Megabyte(10);
 pub struct SignedJson<T>(pub Digest, pub T);
 
 #[rocket::async_trait]
-impl<'r,  T: Deserialize<'r>> FromData<'r> for SignedJson<T> {
+impl<'r, T: Deserialize<'r>> FromData<'r> for SignedJson<T> {
     type Error = rocket::serde::json::Error<'r>;
 
     async fn from_data(req: &'r Request<'_>, data: Data<'r>) -> rocket::data::Outcome<'r, Self> {
@@ -81,7 +74,7 @@ impl<'r,  T: Deserialize<'r>> FromData<'r> for SignedJson<T> {
                     Ok(v) => Outcome::Success(SignedJson(Digest::from_body(&cached), v)),
                     Err(e) => Outcome::Error((Status::BadRequest, JsonError::Parse(&cached, e))),
                 }
-            },
+            }
         }
     }
 }

@@ -60,10 +60,7 @@ fn add_csrf_token_to_cookies_headers_lifetime() {
     }
 
     // Set the X-CSRF-Token header in the request
-    let request = client.get("/").header(rocket::http::Header::new(
-        "X-CSRF-Token",
-        "csrf-token-value",
-    ));
+    let request = client.get("/").header(rocket::http::Header::new("X-CSRF-Token", "csrf-token-value"));
 
     match process_request(&request) {
         Ok(_) => {}
@@ -73,10 +70,7 @@ fn add_csrf_token_to_cookies_headers_lifetime() {
     let response = client.get("/").dispatch();
 
     // Check if the CSRF token cookie exists
-    let csrf_cookie = response
-        .cookies()
-        .iter()
-        .find(|cookie| cookie.name() == COOKIE_NAME);
+    let csrf_cookie = response.cookies().iter().find(|cookie| cookie.name() == COOKIE_NAME);
 
     assert!(csrf_cookie.is_some(), "CSRF token cookie should exist");
 
@@ -84,10 +78,7 @@ fn add_csrf_token_to_cookies_headers_lifetime() {
     let csrf_cookie = csrf_cookie.unwrap();
 
     // Check if the expiration time is set to None
-    assert!(
-        csrf_cookie.expires().is_none(),
-        "CSRF token cookie should have no expiration"
-    );
+    assert!(csrf_cookie.expires().is_none(), "CSRF token cookie should have no expiration");
 
     // Optionally, you can further inspect other properties of the CSRF token cookie if needed.
     assert_eq!(csrf_cookie.path(), Some("/"));

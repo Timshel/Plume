@@ -23,8 +23,7 @@ const TOKEN_VALIDITY_HOURS: i64 = 2;
 impl PasswordResetRequest {
     pub fn insert(conn: &mut Connection, email: &str) -> Result<String> {
         // first, delete other password reset tokens associated with this email:
-        let existing_requests =
-            password_reset_requests::table.filter(password_reset_requests::email.eq(email));
+        let existing_requests = password_reset_requests::table.filter(password_reset_requests::email.eq(email));
         diesel::delete(existing_requests).execute(conn)?;
 
         // now, generate a random token, set the expiry date,
@@ -39,10 +38,7 @@ impl PasswordResetRequest {
             token: token.clone(),
             expiration_date,
         };
-        diesel::insert_into(password_reset_requests::table)
-            .values(new_request)
-            .execute(conn)
-            .map_err(Error::from)?;
+        diesel::insert_into(password_reset_requests::table).values(new_request).execute(conn).map_err(Error::from)?;
 
         Ok(token)
     }
@@ -63,8 +59,7 @@ impl PasswordResetRequest {
     pub fn find_and_delete_by_token(conn: &mut Connection, token: &str) -> Result<Self> {
         let request = Self::find_by_token(conn, token)?;
 
-        let filter =
-            password_reset_requests::table.filter(password_reset_requests::id.eq(request.id));
+        let filter = password_reset_requests::table.filter(password_reset_requests::id.eq(request.id));
         diesel::delete(filter).execute(conn)?;
 
         Ok(request)
@@ -84,10 +79,8 @@ mod tests {
             user_tests::fill_database(&conn);
             let admin_email = "admin@example.com";
 
-            let token = PasswordResetRequest::insert(&conn, admin_email)
-                .expect("couldn't insert new request");
-            let request = PasswordResetRequest::find_by_token(&conn, &token)
-                .expect("couldn't retrieve request");
+            let token = PasswordResetRequest::insert(&conn, admin_email).expect("couldn't insert new request");
+            let request = PasswordResetRequest::find_by_token(&conn, &token).expect("couldn't retrieve request");
 
             assert!(token.len() > 32);
             assert_eq!(&request.email, &admin_email);
@@ -104,8 +97,7 @@ mod tests {
             let admin_email = "admin@example.com";
 
             PasswordResetRequest::insert(&conn, admin_email).expect("couldn't insert new request");
-            PasswordResetRequest::insert(&conn, admin_email)
-                .expect("couldn't insert second request");
+            PasswordResetRequest::insert(&conn, admin_email).expect("couldn't insert second request");
 
             let count = password_reset_requests::table.count().get_result(&*conn);
             assert_eq!(Ok(1), count);
@@ -148,10 +140,8 @@ mod tests {
             user_tests::fill_database(&conn);
             let admin_email = "admin@example.com";
 
-            let token = PasswordResetRequest::insert(&conn, admin_email)
-                .expect("couldn't insert new request");
-            PasswordResetRequest::find_and_delete_by_token(&conn, &token)
-                .expect("couldn't find and delete request");
+            let token = PasswordResetRequest::insert(&conn, admin_email).expect("couldn't insert new request");
+            PasswordResetRequest::find_and_delete_by_token(&conn, &token).expect("couldn't find and delete request");
 
             let count = password_reset_requests::table.count().get_result(&*conn);
             assert_eq!(Ok(0), count);

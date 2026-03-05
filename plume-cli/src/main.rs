@@ -32,7 +32,6 @@ async fn main() {
     let mut conn = Conn::establish(CONFIG.database_url.as_str()).expect("Couldn't connect to the database.");
     let _ = Instance::cache_local(&mut conn);
 
-
     if let Some((c, args)) = matches.remove_subcommand() {
         match c.as_str() {
             "instance" => instance::run(args, &mut conn),
@@ -52,9 +51,7 @@ pub fn ask_for(something: &str) -> String {
     print!("{}: ", something);
     io::stdout().flush().expect("Couldn't flush STDOUT");
     let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .expect("Unable to read line");
+    io::stdin().read_line(&mut input).expect("Unable to read line");
     input.retain(|c| c != '\n');
     input
 }

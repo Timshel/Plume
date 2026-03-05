@@ -167,31 +167,19 @@ impl List {
     get!(lists);
 
     fn insert(conn: &mut Connection, val: NewList<'_>) -> Result<Self> {
-        diesel::insert_into(lists::table)
-            .values(val)
-            .execute(conn)?;
+        diesel::insert_into(lists::table).values(val).execute(conn)?;
         List::last(conn)
     }
 
     pub fn list_for_user(conn: &mut Connection, user_id: Option<i32>) -> Result<Vec<Self>> {
         if let Some(user_id) = user_id {
-            lists::table
-                .filter(lists::user_id.eq(user_id))
-                .load::<Self>(conn)
-                .map_err(Error::from)
+            lists::table.filter(lists::user_id.eq(user_id)).load::<Self>(conn).map_err(Error::from)
         } else {
-            lists::table
-                .filter(lists::user_id.is_null())
-                .load::<Self>(conn)
-                .map_err(Error::from)
+            lists::table.filter(lists::user_id.is_null()).load::<Self>(conn).map_err(Error::from)
         }
     }
 
-    pub fn find_for_user_by_name(
-        conn: &mut Connection,
-        user_id: Option<i32>,
-        name: &str,
-    ) -> Result<Self> {
+    pub fn find_for_user_by_name(conn: &mut Connection, user_id: Option<i32>, name: &str) -> Result<Self> {
         if let Some(user_id) = user_id {
             lists::table
                 .filter(lists::user_id.eq(user_id))
@@ -199,11 +187,7 @@ impl List {
                 .first(conn)
                 .map_err(Error::from)
         } else {
-            lists::table
-                .filter(lists::user_id.is_null())
-                .filter(lists::name.eq(name))
-                .first(conn)
-                .map_err(Error::from)
+            lists::table.filter(lists::user_id.is_null()).filter(lists::name.eq(name)).first(conn).map_err(Error::from)
         }
     }
 
@@ -299,23 +283,15 @@ impl List {
 
     pub fn delete(&self, conn: &mut Connection) -> Result<()> {
         if let Some(user_id) = self.user_id {
-            diesel::delete(
-                lists::table
-                    .filter(lists::user_id.eq(user_id))
-                    .filter(lists::name.eq(&self.name)),
-            )
-            .execute(conn)
-            .map(|_| ())
-            .map_err(Error::from)
+            diesel::delete(lists::table.filter(lists::user_id.eq(user_id)).filter(lists::name.eq(&self.name)))
+                .execute(conn)
+                .map(|_| ())
+                .map_err(Error::from)
         } else {
-            diesel::delete(
-                lists::table
-                    .filter(lists::user_id.is_null())
-                    .filter(lists::name.eq(&self.name)),
-            )
-            .execute(conn)
-            .map(|_| ())
-            .map_err(Error::from)
+            diesel::delete(lists::table.filter(lists::user_id.is_null()).filter(lists::name.eq(&self.name)))
+                .execute(conn)
+                .map(|_| ())
+                .map_err(Error::from)
         }
     }
 
@@ -338,9 +314,7 @@ mod private {
 
         pub fn user_in_list(conn: &mut Connection, list: &List, user: i32) -> Result<bool> {
             dsl::select(dsl::exists(
-                list_elems::table
-                    .filter(list_elems::list_id.eq(list.id))
-                    .filter(list_elems::user_id.eq(Some(user))),
+                list_elems::table.filter(list_elems::list_id.eq(list.id)).filter(list_elems::user_id.eq(Some(user))),
             ))
             .get_result(conn)
             .map_err(Error::from)
@@ -348,9 +322,7 @@ mod private {
 
         pub fn blog_in_list(conn: &mut Connection, list: &List, blog: i32) -> Result<bool> {
             dsl::select(dsl::exists(
-                list_elems::table
-                    .filter(list_elems::list_id.eq(list.id))
-                    .filter(list_elems::blog_id.eq(Some(blog))),
+                list_elems::table.filter(list_elems::list_id.eq(list.id)).filter(list_elems::blog_id.eq(Some(blog))),
             ))
             .get_result(conn)
             .map_err(Error::from)
@@ -358,9 +330,7 @@ mod private {
 
         pub fn word_in_list(conn: &mut Connection, list: &List, word: &str) -> Result<bool> {
             dsl::select(dsl::exists(
-                list_elems::table
-                    .filter(list_elems::list_id.eq(list.id))
-                    .filter(list_elems::word.eq(word)),
+                list_elems::table.filter(list_elems::list_id.eq(list.id)).filter(list_elems::word.eq(word)),
             ))
             .get_result(conn)
             .map_err(Error::from)
@@ -369,10 +339,7 @@ mod private {
         pub fn prefix_in_list(conn: &mut Connection, list: &List, word: &str) -> Result<bool> {
             dsl::select(dsl::exists(
                 list_elems::table
-                    .filter(
-                        word.into_sql::<Nullable<Text>>()
-                            .like(list_elems::word.concat("%")),
-                    )
+                    .filter(word.into_sql::<Nullable<Text>>().like(list_elems::word.concat("%")))
                     .filter(list_elems::list_id.eq(list.id)),
             ))
             .get_result(conn)
@@ -430,14 +397,8 @@ mod tests {
                 l_eq(&l2, &l_inst[0]);
             }
 
-            l_eq(
-                &l1,
-                &List::find_for_user_by_name(conn, l1.user_id, &l1.name).unwrap(),
-            );
-            l_eq(
-                &l1u,
-                &List::find_for_user_by_name(conn, l1u.user_id, &l1u.name).unwrap(),
-            );
+            l_eq(&l1, &List::find_for_user_by_name(conn, l1.user_id, &l1.name).unwrap());
+            l_eq(&l1u, &List::find_for_user_by_name(conn, l1u.user_id, &l1u.name).unwrap());
             Ok(())
         });
     }

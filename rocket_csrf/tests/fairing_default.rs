@@ -7,9 +7,7 @@ fn client() -> rocket::local::blocking::Client {
 }
 
 fn rocket() -> rocket::Rocket<rocket::Build> {
-    rocket::build()
-        .attach(rocket_csrf::Fairing::default())
-        .mount("/", routes![index])
+    rocket::build().attach(rocket_csrf::Fairing::default()).mount("/", routes![index])
 }
 
 #[get("/")]
@@ -19,14 +17,7 @@ fn index() {}
 fn add_csrf_token_to_cookies() {
     general_purpose::STANDARD
         .decode(
-            client()
-                .get("/")
-                .dispatch()
-                .cookies()
-                .iter()
-                .find(|cookie| cookie.name() == "csrf_token")
-                .unwrap()
-                .value(),
+            client().get("/").dispatch().cookies().iter().find(|cookie| cookie.name() == "csrf_token").unwrap().value(),
         )
         .unwrap();
 }

@@ -4,14 +4,13 @@ use crate::{
     template_utils::{IntoContext, Ructe},
 };
 
-use plume_models::{
-    db_conn::DbConn, email_signups::EmailSignup, instance::Instance, signups,
-    Error, PlumeRocket, CONFIG,
-};
 use lettre::Transport;
+use plume_models::{
+    db_conn::DbConn, email_signups::EmailSignup, instance::Instance, signups, Error, PlumeRocket, CONFIG,
+};
 use rocket::{
-    http::Status,
     form::Form,
+    http::Status,
     response::{Flash, Redirect},
     State,
 };
@@ -24,11 +23,7 @@ use tracing::warn;
 use validator::{Validate, ValidationError, ValidationErrors};
 
 #[derive(Default, FromForm, Validate)]
-#[validate(schema(
-    function = "emails_match",
-    skip_on_field_errors = false,
-    message = "Emails are not matching"
-))]
+#[validate(schema(function = "emails_match", skip_on_field_errors = false, message = "Emails are not matching"))]
 pub struct EmailSignupForm {
     #[validate(email(message = "Invalid email"))]
     pub email: String,
@@ -45,11 +40,7 @@ fn emails_match(form: &EmailSignupForm) -> Result<(), ValidationError> {
 }
 
 #[derive(Default, FromForm, Validate)]
-#[validate(schema(
-    function = "passwords_match",
-    skip_on_field_errors = false,
-    message = "Passwords are not matching"
-))]
+#[validate(schema(function = "passwords_match", skip_on_field_errors = false, message = "Passwords are not matching"))]
 pub struct NewUserForm {
     #[validate(length(min = 1, message = "Username should be at least 1 characters long"))]
     pub username: String,
@@ -77,17 +68,12 @@ pub fn create(
     rockets: PlumeRocket,
     _enabled: signups::Email,
 ) -> Result<RespondOrRedirect, ErrorPage> {
-    let registration_open = Instance::get_local()
-        .map(|i| i.open_registrations)
-        .unwrap_or(true);
+    let registration_open = Instance::get_local().map(|i| i.open_registrations).unwrap_or(true);
 
     if !registration_open {
         return Ok(Flash::error(
             Redirect::to(uri!(super::user::new)),
-            i18n!(
-                rockets.intl.catalog,
-                "Registrations are closed on this instance."
-            ),
+            i18n!(rockets.intl.catalog, "Registrations are closed on this instance."),
         )
         .into()); // Actually, it is an error
     }
@@ -107,7 +93,10 @@ pub fn create(
         return Ok(match err {
             Error::UserAlreadyExists => {
                 // TODO: Notify to admin (and the user?)
-                warn!("Registration attempted for existing user: {}. Registraion halted and email sending skipped.", &form.email);
+                warn!(
+                    "Registration attempted for existing user: {}. Registraion halted and email sending skipped.",
+                    &form.email
+                );
                 render!(email_signups::create_html(&(&mut conn, &rockets).to_context())).into()
             }
             Error::NotFound => render!(errors::not_found_html(&(&mut conn, &rockets).to_context())).into(),
@@ -123,23 +112,14 @@ pub fn create(
                         },
                     );
                 }
-                render!(email_signups::new_html(
-                    &(&mut conn, &rockets).to_context(),
-                    registration_open,
-                    &form,
-                    errors
-                ))
-                .into()
+                render!(email_signups::new_html(&(&mut conn, &rockets).to_context(), registration_open, &form, errors))
+                    .into()
             }
             _ => render!(errors::not_found_html(&(&mut conn, &rockets).to_context())).into(), // FIXME
         });
     }
     let token = res.unwrap();
-    let url = format!(
-        "https://{}{}",
-        CONFIG.base_url,
-        uri!(show(token = token.to_string()))
-    );
+    let url = format!("https://{}{}", CONFIG.base_url, uri!(show(token = token.to_string())));
     let message = build_mail(
         form.email,
         i18n!(rockets.intl.catalog, "User registration"),
@@ -160,12 +140,7 @@ pub fn created(mut conn: DbConn, rockets: PlumeRocket, _enabled: signups::Email)
 }
 
 #[get("/email_signups/<token>")]
-pub fn show(
-    token: &str,
-    mut conn: DbConn,
-    rockets: PlumeRocket,
-    _enabled: signups::Email,
-) -> Result<Ructe, ErrorPage> {
+pub fn show(token: &str, mut conn: DbConn, rockets: PlumeRocket, _enabled: signups::Email) -> Result<Ructe, ErrorPage> {
     let signup = EmailSignup::find_by_token(&mut conn, token.to_string().into())?;
     let confirmation = signup.confirm(&mut conn);
     if let Some(err) = confirmation.err() {
@@ -239,8 +214,7 @@ pub fn signup(
             err
         ))));
     }
-    let signup = EmailSignup::find_by_token(&mut conn, form.token.clone().into())
-        .map_err(|_| Status::NotFound)?;
+    let signup = EmailSignup::find_by_token(&mut conn, form.token.clone().into()).map_err(|_| Status::NotFound)?;
     if form.email != signup.email {
         let mut err = ValidationErrors::default();
         err.add("email", ValidationError::new("Email couldn't changed"));

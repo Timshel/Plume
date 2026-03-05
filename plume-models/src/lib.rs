@@ -28,12 +28,8 @@ pub type Connection = diesel::SqliteConnection;
 #[cfg(all(not(feature = "sqlite"), feature = "postgres"))]
 pub type Connection = diesel::PgConnection;
 
-pub(crate) static ACTOR_SYS: Lazy<ActorSystem> = Lazy::new(|| {
-    SystemBuilder::new()
-        .name("plume")
-        .create()
-        .expect("Failed to create actor system")
-});
+pub(crate) static ACTOR_SYS: Lazy<ActorSystem> =
+    Lazy::new(|| SystemBuilder::new().name("plume").create().expect("Failed to create actor system"));
 
 pub(crate) static USER_CHAN: Lazy<ChannelRef<UserEvent>> =
     Lazy::new(|| channel("user_events", &*ACTOR_SYS).expect("Failed to create user channel"));
@@ -237,10 +233,7 @@ macro_rules! list_by {
 macro_rules! get {
     ($table:ident) => {
         pub fn get(conn: &mut crate::Connection, id: i32) -> Result<Self> {
-            $table::table
-                .filter($table::id.eq(id))
-                .first(conn)
-                .map_err(Error::from)
+            $table::table.filter($table::id.eq(id)).first(conn).map_err(Error::from)
         }
     };
 }
@@ -293,10 +286,7 @@ macro_rules! last {
     ($table:ident) => {
         #[allow(dead_code)]
         pub fn last(conn: &mut crate::Connection) -> Result<Self> {
-            $table::table
-                .order_by($table::id.desc())
-                .first(conn)
-                .map_err(Error::from)
+            $table::table.order_by($table::id.desc()).first(conn).map_err(Error::from)
         }
     };
 }
@@ -338,8 +328,7 @@ mod tests {
                 .connection_customizer(Box::new(db_conn::tests::TestConnectionCustomizer))
                 .build(ConnectionManager::<Conn>::new(CONFIG.database_url.as_str()))
                 .unwrap();
-            plume_models::migrations::run_pending_migrations(&pool.get().unwrap())
-                .expect("Migrations error");
+            plume_models::migrations::run_pending_migrations(&pool.get().unwrap()).expect("Migrations error");
             pool
         };
     }

@@ -5,10 +5,7 @@ init_i18n!("test", fr, en, de, ja);
 #[test]
 fn main() {
     let msgid1 = t!("This should be translated");
-    let msgid2 = t!(
-        "This should also be translated",
-        "And also has a plural version"
-    );
+    let msgid2 = t!("This should also be translated", "And also has a plural version");
     let cat = get_i18n();
     i18n!(cat, msgid1);
     i18n!(cat, msgid2.0, msgid2.1; 42);

@@ -3,9 +3,7 @@ use chrono::{offset::Utc, DateTime};
 use openssl::hash::{Hasher, MessageDigest};
 use reqwest::{
     blocking::{ClientBuilder, Response},
-    header::{
-        HeaderMap, HeaderValue, InvalidHeaderValue, ACCEPT, CONTENT_TYPE, DATE, HOST, USER_AGENT,
-    },
+    header::{HeaderMap, HeaderValue, InvalidHeaderValue, ACCEPT, CONTENT_TYPE, DATE, HOST, USER_AGENT},
     Proxy, Url,
 };
 use std::ops::Deref;
@@ -42,28 +40,17 @@ pub struct Digest(String);
 
 impl Digest {
     pub fn digest(body: &str) -> HeaderValue {
-        let mut hasher =
-            Hasher::new(MessageDigest::sha256()).expect("Digest::digest: initialization error");
-        hasher
-            .update(body.as_bytes())
-            .expect("Digest::digest: content insertion error");
+        let mut hasher = Hasher::new(MessageDigest::sha256()).expect("Digest::digest: initialization error");
+        hasher.update(body.as_bytes()).expect("Digest::digest: content insertion error");
         let res = BASE64_STANDARD.encode(&hasher.finish().expect("Digest::digest: finalizing error"));
-        HeaderValue::from_str(&format!("SHA-256={}", res))
-            .expect("Digest::digest: header creation error")
+        HeaderValue::from_str(&format!("SHA-256={}", res)).expect("Digest::digest: header creation error")
     }
 
     pub fn verify(&self, body: &str) -> bool {
         if self.algorithm() == "SHA-256" {
-            let mut hasher =
-                Hasher::new(MessageDigest::sha256()).expect("Digest::digest: initialization error");
-            hasher
-                .update(body.as_bytes())
-                .expect("Digest::digest: content insertion error");
-            self.value().deref()
-                == hasher
-                    .finish()
-                    .expect("Digest::digest: finalizing error")
-                    .deref()
+            let mut hasher = Hasher::new(MessageDigest::sha256()).expect("Digest::digest: initialization error");
+            hasher.update(body.as_bytes()).expect("Digest::digest: content insertion error");
+            self.value().deref() == hasher.finish().expect("Digest::digest: finalizing error").deref()
         } else {
             false //algorithm not supported
         }
@@ -74,19 +61,12 @@ impl Digest {
     }
 
     pub fn algorithm(&self) -> &str {
-        let pos = self
-            .0
-            .find('=')
-            .expect("Digest::algorithm: invalid header error");
+        let pos = self.0.find('=').expect("Digest::algorithm: invalid header error");
         &self.0[..pos]
     }
 
     pub fn value(&self) -> Vec<u8> {
-        let pos = self
-            .0
-            .find('=')
-            .expect("Digest::value: invalid header error")
-            + 1;
+        let pos = self.0.find('=').expect("Digest::value: invalid header error") + 1;
         BASE64_STANDARD.decode(&self.0[pos..]).expect("Digest::value: invalid encoding error")
     }
 
@@ -104,11 +84,8 @@ impl Digest {
     }
 
     pub fn from_body(body: &str) -> Self {
-        let mut hasher =
-            Hasher::new(MessageDigest::sha256()).expect("Digest::digest: initialization error");
-        hasher
-            .update(body.as_bytes())
-            .expect("Digest::digest: content insertion error");
+        let mut hasher = Hasher::new(MessageDigest::sha256()).expect("Digest::digest: initialization error");
+        hasher.update(body.as_bytes()).expect("Digest::digest: content insertion error");
         let res = BASE64_STANDARD.encode(&hasher.finish().expect("Digest::digest: finalizing error"));
         Digest(format!("SHA-256={}", res))
     }
@@ -120,19 +97,11 @@ pub fn headers() -> HeaderMap {
 
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static(PLUME_USER_AGENT));
-    headers.insert(
-        DATE,
-        HeaderValue::from_str(&date).expect("request::headers: date error"),
-    );
+    headers.insert(DATE, HeaderValue::from_str(&date).expect("request::headers: date error"));
     headers.insert(
         ACCEPT,
-        HeaderValue::from_str(
-            &ap_accept_header()
-                .into_iter()
-                .collect::<Vec<_>>()
-                .join(", "),
-        )
-        .expect("request::headers: accept error"),
+        HeaderValue::from_str(&ap_accept_header().into_iter().collect::<Vec<_>>().join(", "))
+            .expect("request::headers: accept error"),
     );
     headers.insert(CONTENT_TYPE, HeaderValue::from_static(AP_CONTENT_TYPE));
     headers
@@ -167,16 +136,8 @@ pub fn signature(
     let request_target = format!("{} {}", method.to_lowercase(), origin_form);
     headers_vec.push(("(request-target)".to_string(), &request_target));
 
-    let signed_string = headers_vec
-        .iter()
-        .map(|(h, v)| format!("{}: {}", h, v))
-        .collect::<Vec<String>>()
-        .join("\n");
-    let signed_headers = headers_vec
-        .iter()
-        .map(|(h, _)| h.as_ref())
-        .collect::<Vec<&str>>()
-        .join(" ");
+    let signed_string = headers_vec.iter().map(|(h, v)| format!("{}: {}", h, v)).collect::<Vec<String>>().join("\n");
+    let signed_headers = headers_vec.iter().map(|(h, _)| h.as_ref()).collect::<Vec<&str>>().join(" ");
 
     let data = signer.sign(&signed_string).map_err(|_| Error())?;
     let sign = BASE64_STANDARD.encode(&data);
@@ -186,7 +147,8 @@ pub fn signature(
         key_id = signer.get_key_id(),
         signed_headers = signed_headers,
         signature = sign
-    )).map_err(|_| Error())
+    ))
+    .map_err(|_| Error())
 }
 
 pub fn get(url_str: &str, sender: &dyn Signer, proxy: Option<Proxy>) -> Result<Response, Error> {
@@ -206,10 +168,7 @@ pub fn get(url_str: &str, sender: &dyn Signer, proxy: Option<Proxy>) -> Result<R
     .build()?
     .get(url_str)
     .headers(headers.clone())
-    .header(
-        "Signature",
-        signature(sender, &headers, ("get", url.path(), url.query()))?,
-    )
+    .header("Signature", signature(sender, &headers, ("get", url.path(), url.query()))?)
     .send()
     .map_err(|_| Error())
 }
@@ -242,16 +201,14 @@ mod tests {
         }
 
         fn sign(&self, to_sign: &str) -> Result<Vec<u8>> {
-            let key = PKey::from_rsa(Rsa::private_key_from_pem(self.private_key.as_ref()).unwrap())
-                .unwrap();
+            let key = PKey::from_rsa(Rsa::private_key_from_pem(self.private_key.as_ref()).unwrap()).unwrap();
             let mut signer = openssl::sign::Signer::new(MessageDigest::sha256(), &key).unwrap();
             signer.update(to_sign.as_bytes()).unwrap();
             signer.sign_to_vec().map_err(|_| Error())
         }
 
         fn verify(&self, data: &str, signature: &[u8]) -> Result<bool> {
-            let key = PKey::from_rsa(Rsa::public_key_from_pem(self.public_key.as_ref()).unwrap())
-                .unwrap();
+            let key = PKey::from_rsa(Rsa::public_key_from_pem(self.public_key.as_ref()).unwrap()).unwrap();
             let mut verifier = openssl::sign::Verifier::new(MessageDigest::sha256(), &key).unwrap();
             verifier.update(data.as_bytes()).unwrap();
             verifier.verify(signature).map_err(|_| Error())
