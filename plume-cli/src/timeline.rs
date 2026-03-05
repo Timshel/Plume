@@ -108,7 +108,7 @@ pub fn command() -> Command {
         )
 }
 
-pub async fn run<'a>(mut args: ArgMatches, conn: &mut Connection) {
+pub async fn run(mut args: ArgMatches, conn: &mut Connection) {
     if let Some((c, a)) = args.remove_subcommand() {
         match c.as_str() {
             "new" => new(a, conn).await,
@@ -162,7 +162,7 @@ async fn preload(timeline: Timeline, count: usize, conn: &mut Connection) {
         return;
     }
 
-    let mut posts = Vec::with_capacity(count as usize);
+    let mut posts = Vec::with_capacity(count);
     for post in Post::list_filtered(conn, None, None, None).unwrap().into_iter().rev() {
         if timeline.matches(conn, &post, &Kind::Original).await.unwrap() {
             posts.push(post);

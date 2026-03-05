@@ -4,7 +4,9 @@ use rocket_i18n::I18n;
 use crate::routes::{errors::ErrorPage, Page};
 use crate::template_utils::{IntoContext, Ructe};
 use crate::utils::requires_login;
-use plume_models::{db_conn::DbConn, notifications::Notification, users::User, PlumeRocket};
+use plume_models::{db_conn::DbConn, notifications::Notification, posts::Post, users::User, PlumeRocket};
+
+pub type NotificationDetails = (Notification, Option<User>, Option<String>, Option<Post>, String);
 
 #[get("/notifications?<page>")]
 pub fn notifications(

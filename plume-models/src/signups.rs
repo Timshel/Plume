@@ -6,15 +6,11 @@ use rocket::{
 use std::fmt;
 use std::str::FromStr;
 
+#[derive(Default)]
 pub enum Strategy {
+    #[default]
     Password,
     Email,
-}
-
-impl Default for Strategy {
-    fn default() -> Self {
-        Self::Password
-    }
 }
 
 impl FromStr for Strategy {

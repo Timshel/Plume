@@ -70,9 +70,9 @@ impl<'r, T: Deserialize<'r>> FromData<'r> for SignedJson<T> {
             Err(e) => Outcome::Error((Status::UnprocessableEntity, JsonError::Io(e))),
             Ok(js_data) => {
                 let cached = rocket::request::local_cache!(req, js_data.into_inner());
-                match serde_json::from_str(&cached) {
-                    Ok(v) => Outcome::Success(SignedJson(Digest::from_body(&cached), v)),
-                    Err(e) => Outcome::Error((Status::BadRequest, JsonError::Parse(&cached, e))),
+                match serde_json::from_str(cached) {
+                    Ok(v) => Outcome::Success(SignedJson(Digest::from_body(cached), v)),
+                    Err(e) => Outcome::Error((Status::BadRequest, JsonError::Parse(cached, e))),
                 }
             }
         }

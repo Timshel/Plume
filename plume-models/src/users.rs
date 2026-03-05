@@ -136,10 +136,10 @@ impl User {
 
     pub fn save(&self, conn: &mut Connection) -> Result<usize> {
         diesel::insert_into(users::table) // Insert or update
-            .values(&*self)
+            .values(self)
             .on_conflict(users::id)
             .do_update()
-            .set(&*self)
+            .set(self)
             .execute(conn)
             .map_err(Error::from)
     }
@@ -148,7 +148,7 @@ impl User {
         use crate::schema::post_authors;
 
         for blog in Blog::find_for_author(conn, self)? {
-            if let Some(count) = blog.count_authors(conn).ok() {
+            if let Ok(count) = blog.count_authors(conn) {
                 if count <= 1 {
                     blog.delete(conn)?;
                 }

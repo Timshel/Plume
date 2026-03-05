@@ -109,10 +109,10 @@ impl Blog {
 
     pub fn save(&self, conn: &mut Connection) -> Result<usize> {
         diesel::insert_into(blogs::table) // Insert or update
-            .values(&*self)
+            .values(self)
             .on_conflict(blogs::id)
             .do_update()
-            .set(&*self)
+            .set(self)
             .execute(conn)
             .map_err(Error::from)
     }
@@ -229,7 +229,7 @@ impl Blog {
             format!(
                 "{}?page={}",
                 &self.outbox_url,
-                (n_acts as u64 + ITEMS_PER_PAGE as u64 - 1) as u64 / ITEMS_PER_PAGE as u64
+                (n_acts as u64 + ITEMS_PER_PAGE as u64 - 1).div_ceil(ITEMS_PER_PAGE as u64)
             )
             .parse::<IriString>()?,
         );

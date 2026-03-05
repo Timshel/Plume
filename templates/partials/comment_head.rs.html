@@ -11,7 +11,7 @@
     <main class="content">
         <header>
             <a class="author u-author h-card" href="@uri!(user::details(name = &author.fqn))" dir="auto">
-                @avatar(&author, &comment_tree.author_image_url, Size::Small, true, ctx.1)
+                @avatar(author, &comment_tree.author_image_url, Size::Small, true, ctx.1)
                 <span class="display-name p-name">@author.name()</span>
                 <small>@author.fqn</small>
     	    </a>

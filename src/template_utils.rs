@@ -12,14 +12,16 @@ pub use plume_common::utils::escape;
 
 pub static CACHE_NAME: &str = env!("CACHE_ID");
 
+pub type InnerContext<'a> = (Option<String>, &'a Catalog, Option<User>, Option<(String, String)>);
+
 pub type BaseContext<'a> = &'a (Option<String>, &'a Catalog, Option<User>, Option<(String, String)>);
 
 pub trait IntoContext {
-    fn to_context(&mut self) -> (Option<String>, &Catalog, Option<User>, Option<(String, String)>);
+    fn to_context(&mut self) -> InnerContext<'_>;
 }
 
 impl IntoContext for (&mut DbConn, &PlumeRocket) {
-    fn to_context(&mut self) -> (Option<String>, &Catalog, Option<User>, Option<(String, String)>) {
+    fn to_context(&mut self) -> InnerContext<'_> {
         let avatar_url = self.1.user.as_ref().and_then(|u| u.avatar_url(self.0));
         (avatar_url, &self.1.intl.catalog, self.1.user.clone(), self.1.flash_msg.clone())
     }
@@ -108,7 +110,7 @@ impl Size {
 pub fn default_avatar(avatar_url: &Option<String>) -> &str {
     match avatar_url {
         Some(url) => url,
-        None => &"/static/images/default-avatar.png",
+        None => "/static/images/default-avatar.png",
     }
 }
 

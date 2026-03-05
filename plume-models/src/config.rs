@@ -57,21 +57,22 @@ pub enum InvalidRocketConfig {
 fn get_rocket_config() -> Result<RocketConfig, InvalidRocketConfig> {
     use rocket::data::ToByteUnit;
 
-    let mut c = RocketConfig::default();
-
-    c.address =
-        var("ROCKET_ADDRESS").unwrap_or("127.0.0.1".to_string()).parse().map_err(|_| InvalidRocketConfig::Address)?;
-    c.port = var("ROCKET_PORT").ok().map(|s| s.parse::<u16>().unwrap()).unwrap_or(7878);
-    c.secret_key = rocket::config::SecretKey::from(
-        var("ROCKET_SECRET_KEY").map_err(|_| InvalidRocketConfig::SecretKey)?.as_bytes(),
-    );
-
-    c.cli_colors = var("ROCKET_CLI_COLORS").ok().map(|cc| cc.parse::<bool>().unwrap_or(false)).unwrap_or(true);
-
     let form_size = var("FORM_SIZE").unwrap_or_else(|_| "128".to_owned()).parse::<u64>().unwrap();
     let activity_size = var("ACTIVITY_SIZE").unwrap_or_else(|_| "1024".to_owned()).parse::<u64>().unwrap();
 
-    c.limits = Limits::default().limit("forms", form_size.kilobytes()).limit("json", activity_size.kilobytes());
+    let c = rocket::Config {
+        address: var("ROCKET_ADDRESS")
+            .unwrap_or("127.0.0.1".to_string())
+            .parse()
+            .map_err(|_| InvalidRocketConfig::Address)?,
+        port: var("ROCKET_PORT").ok().map(|s| s.parse::<u16>().unwrap()).unwrap_or(7878),
+        secret_key: rocket::config::SecretKey::from(
+            var("ROCKET_SECRET_KEY").map_err(|_| InvalidRocketConfig::SecretKey)?.as_bytes(),
+        ),
+        cli_colors: var("ROCKET_CLI_COLORS").ok().map(|cc| cc.parse::<bool>().unwrap_or(false)).unwrap_or(true),
+        limits: Limits::default().limit("forms", form_size.kilobytes()).limit("json", activity_size.kilobytes()),
+        ..Default::default()
+    };
 
     Ok(c)
 }

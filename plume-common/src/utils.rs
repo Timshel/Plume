@@ -179,7 +179,7 @@ fn process_image<'a, 'b>(evt: Event<'a>, inline: bool, processor: &mut Option<Me
     if let Some(ref mut processor) = processor {
         match evt {
             Event::Start(Tag::Image(typ, id, title)) => {
-                let processed = if let Some(i_id) = id.parse::<i32>().ok() {
+                let processed = if let Ok(i_id) = id.parse::<i32>() {
                     processor(i_id)
                 } else {
                     None
@@ -211,7 +211,7 @@ fn process_image<'a, 'b>(evt: Event<'a>, inline: bool, processor: &mut Option<Me
                 }
             }
             Event::End(Tag::Image(typ, id, title)) => {
-                let processed = if let Some(i_id) = id.parse::<i32>().ok() {
+                let processed = if let Ok(i_id) = id.parse::<i32>() {
                     processor(i_id)
                 } else {
                     None

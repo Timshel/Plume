@@ -9,7 +9,7 @@ use std::{
 };
 use validator::{Validate, ValidationError, ValidationErrors};
 
-use crate::routes::{comments::NewCommentForm, errors::ErrorPage, ContentLen, RemoteForm, RespondOrRedirect};
+use crate::routes::{comments::NewCommentForm, errors::ErrorPage, ContentLen, Page, RemoteForm, RespondOrRedirect};
 use crate::template_utils::{IntoContext, PostCard, Ructe};
 use crate::utils::requires_login;
 use plume_common::activity_pub::{broadcast, ActivityStream, ApRequest, LicensedArticle};

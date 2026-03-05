@@ -103,7 +103,6 @@ impl AsObject<User, Announce, &mut Connection> for Post {
     type Output = Reshare;
 
     async fn activity(self, conn: &mut Connection, actor: User, id: &str) -> Result<Reshare> {
-        let conn = conn;
         let reshare = Reshare::insert(
             conn,
             NewReshare {

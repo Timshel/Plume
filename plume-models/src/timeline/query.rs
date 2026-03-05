@@ -59,27 +59,29 @@ impl<'a> Token<'a> {
 
     fn get_error<T>(&self, token: Token<'_>) -> QueryResult<T> {
         let (b, e) = self.get_pos();
-        let message = format!("Syntax Error: Expected {}, got {}", token.to_string(), self.to_string());
+        let message = format!("Syntax Error: Expected {}, got {}", token, self);
         Err(QueryError::SyntaxError(b, e, message))
     }
 }
 
-impl<'a> ToString for Token<'a> {
-    fn to_string(&self) -> String {
+impl<'a> std::fmt::Display for Token<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Token::Word(0, 0, v) = self {
-            return (*v).to_string();
+            write!(f, "{}", *v)
+        } else {
+            write!(
+                f,
+                "'{}'",
+                match self {
+                    Token::Word(_, _, v) => v,
+                    Token::LParent(_) => "(",
+                    Token::RParent(_) => ")",
+                    Token::LBracket(_) => "[",
+                    Token::RBracket(_) => "]",
+                    Token::Comma(_) => ",",
+                }
+            )
         }
-        format!(
-            "'{}'",
-            match self {
-                Token::Word(_, _, v) => v,
-                Token::LParent(_) => "(",
-                Token::RParent(_) => ")",
-                Token::LBracket(_) => "[",
-                Token::RBracket(_) => "]",
-                Token::Comma(_) => ",",
-            }
-        )
     }
 }
 
@@ -435,7 +437,7 @@ fn parse_s<'a, 'b>(mut stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>],
     stream = left;
     while !stream.is_empty() {
         match stream[0] {
-            Token::Word(_, _, and) if and == "or" => {}
+            Token::Word(_, _, "or") => {}
             _ => break,
         }
         let (left, token) = parse_a(&stream[1..])?;
@@ -457,7 +459,7 @@ fn parse_a<'a, 'b>(mut stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>],
     stream = left;
     while !stream.is_empty() {
         match stream[0] {
-            Token::Word(_, _, and) if and == "and" => {}
+            Token::Word(_, _, "and") => {}
             _ => break,
         }
         let (left, token) = parse_b(&stream[1..])?;
@@ -473,10 +475,10 @@ fn parse_a<'a, 'b>(mut stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>],
 }
 
 fn parse_b<'a, 'b>(stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>], TQ<'a>)> {
-    match stream.get(0) {
+    match stream.first() {
         Some(Token::LParent(_)) => {
             let (left, token) = parse_s(&stream[1..])?;
-            match left.get(0) {
+            match left.first() {
                 Some(Token::RParent(_)) => Ok((&left[1..], token)),
                 Some(t) => t.get_error(Token::RParent(0)),
                 None => Err(QueryError::UnexpectedEndOfQuery),
@@ -487,7 +489,7 @@ fn parse_b<'a, 'b>(stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>], TQ<
 }
 
 fn parse_c<'a, 'b>(stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>], TQ<'a>)> {
-    match stream.get(0) {
+    match stream.first() {
         Some(Token::Word(_, _, not)) if not == &"not" => {
             let (left, token) = parse_d(&stream[1..])?;
             Ok((left, TQ::Arg(token, true)))
@@ -500,7 +502,7 @@ fn parse_c<'a, 'b>(stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>], TQ<
 }
 
 fn parse_d<'a, 'b>(mut stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>], Arg<'a>)> {
-    match stream.get(0).map(Token::get_text).ok_or(QueryError::UnexpectedEndOfQuery)? {
+    match stream.first().map(Token::get_text).ok_or(QueryError::UnexpectedEndOfQuery)? {
         s @ "blog" | s @ "author" | s @ "license" | s @ "tags" | s @ "lang" => {
             match stream.get(1).ok_or(QueryError::UnexpectedEndOfQuery)? {
                 Token::Word(_, _, r#in) if r#in == &"in" => {
@@ -510,7 +512,7 @@ fn parse_d<'a, 'b>(mut stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>],
                         "author" => {
                             let mut boosts = true;
                             let mut likes = false;
-                            while let Some(Token::Word(s, e, clude)) = left.get(0) {
+                            while let Some(Token::Word(s, e, clude)) = left.first() {
                                 if *clude != "include" && *clude != "exclude" {
                                     break;
                                 }
@@ -598,7 +600,7 @@ fn parse_d<'a, 'b>(mut stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>],
             "all" => Ok((&stream[1..], Arg::Boolean(Bool::All))),
             _ => unreachable!(),
         },
-        _ => stream.get(0).ok_or(QueryError::UnexpectedEndOfQuery)?.get_error(Token::Word(
+        _ => stream.first().ok_or(QueryError::UnexpectedEndOfQuery)?.get_error(Token::Word(
             0,
             0,
             "one of 'blog', 'author', 'license', 'tags', 'lang', \
@@ -608,10 +610,10 @@ fn parse_d<'a, 'b>(mut stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>],
 }
 
 fn parse_l<'a, 'b>(stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>], List<'a>)> {
-    match stream.get(0).ok_or(QueryError::UnexpectedEndOfQuery)? {
+    match stream.first().ok_or(QueryError::UnexpectedEndOfQuery)? {
         Token::LBracket(_) => {
             let (left, list) = parse_m(&stream[1..])?;
-            match left.get(0).ok_or(QueryError::UnexpectedEndOfQuery)? {
+            match left.first().ok_or(QueryError::UnexpectedEndOfQuery)? {
                 Token::RBracket(_) => Ok((&left[1..], List::Array(list))),
                 t => t.get_error(Token::Word(0, 0, "one of ']' or ','")),
             }
@@ -622,7 +624,7 @@ fn parse_l<'a, 'b>(stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>], Lis
 }
 
 fn parse_m<'a, 'b>(mut stream: &'b [Token<'a>]) -> QueryResult<(&'b [Token<'a>], Vec<&'a str>)> {
-    let mut res: Vec<&str> = vec![match stream.get(0).ok_or(QueryError::UnexpectedEndOfQuery)? {
+    let mut res: Vec<&str> = vec![match stream.first().ok_or(QueryError::UnexpectedEndOfQuery)? {
         Token::Word(_, _, w) => w,
         t => return t.get_error(Token::Word(0, 0, "any word")),
     }];

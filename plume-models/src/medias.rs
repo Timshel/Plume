@@ -106,24 +106,24 @@ impl Media {
     pub fn html(&self) -> Result<SafeString> {
         let url = self.url()?;
         Ok(match self.category() {
-            MediaCategory::Image => SafeString::trusted(&format!(
+            MediaCategory::Image => SafeString::trusted(format!(
                 r#"<img src="{}" alt="{}" title="{}">"#,
                 url,
                 escape(&self.alt_text),
                 escape(&self.alt_text)
             )),
-            MediaCategory::Audio => SafeString::trusted(&format!(
+            MediaCategory::Audio => SafeString::trusted(format!(
                 r#"<div class="media-preview audio"></div><audio src="{}" title="{}" controls></audio>"#,
                 url,
                 escape(&self.alt_text)
             )),
-            MediaCategory::Video => SafeString::trusted(&format!(
+            MediaCategory::Video => SafeString::trusted(format!(
                 r#"<video src="{}" title="{}" controls></video>"#,
                 url,
                 escape(&self.alt_text)
             )),
             MediaCategory::Unknown => {
-                SafeString::trusted(&format!(r#"<a href="{}" class="media-preview unknown"></a>"#, url,))
+                SafeString::trusted(format!(r#"<a href="{}" class="media-preview unknown"></a>"#, url,))
             }
         })
     }

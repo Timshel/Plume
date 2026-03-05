@@ -10,7 +10,7 @@ use rocket::{
 */
 pub fn requires_login<T: Into<Uri<'static>>>(message: &str, url: T) -> Flash<Redirect> {
     Flash::new(
-        Redirect::to(format!("/login?m={}", RawStr::new(&message).percent_encode().to_string())),
+        Redirect::to(format!("/login?m={}", RawStr::new(&message).percent_encode())),
         "callback",
         url.into().to_string(),
     )

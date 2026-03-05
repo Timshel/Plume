@@ -1,8 +1,8 @@
-@use plume_models::{notifications::Notification, posts::Post, users::User};
+@use crate::routes::notifications::NotificationDetails;
 @use crate::templates::base_html;
 @use crate::template_utils::*;
 
-@(ctx: BaseContext, notifications: Vec<(Notification, Option<User>, Option<String>, Option<Post>, String)>, page: i32, n_pages: i32)
+@(ctx: BaseContext, notifications: Vec<NotificationDetails>, page: i32, n_pages: i32)
 
 @:base_html(ctx, i18n!(ctx.1, "Notifications"), {}, {}, {
     <h1>@i18n!(ctx.1, "Notifications")</h1>

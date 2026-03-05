@@ -21,7 +21,7 @@ use scheduled_thread_pool::ScheduledThreadPool;
 use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tracing::warn;
+use tracing::{error, warn};
 
 init_i18n!(
     "plume", af, ar, bg, ca, cs, cy, da, de, el, en, eo, es, eu, fa, fi, fr, gl, he, hi, hr, hu, it, ja, ko, nb, nl,
@@ -260,11 +260,11 @@ and https://docs.joinplu.me/installation/init for more info.
 }
 
 #[rocket::main]
-async fn main() -> Result<(), rocket::Error> {
+async fn main() -> Result<(), ()> {
     let rocket = init_rocket();
 
     #[cfg(feature = "test")]
     let rocket = rocket.mount("/test", routes![test_routes::health,]);
 
-    rocket.launch().await.map(|_| ())
+    rocket.launch().await.map(|_| ()).map_err(|err| error!("Failed to launch Rocket {err}"))
 }

@@ -5,7 +5,7 @@ use crate::{
 use chrono::{Datelike, Utc};
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 use std::fs;
 use std::{cmp, fs::create_dir_all, io, path::Path, sync::Mutex};
 use tantivy::{
@@ -111,7 +111,7 @@ index, run this command:
 Then try to restart Plume
 "#
                 ),
-                e => Err(e).unwrap(),
+                e => panic!("{:?}", e),
             },
             _ => panic!("Unexpected error while opening search index"),
         }
@@ -288,8 +288,8 @@ Then try to restart Plume
             for post in posts.iter() {
                 // TODO we could joins to reduce per-post sql calls even more
                 let blog = post.get_blog(conn)?;
-                if !instance_cache.contains_key(&blog.instance_id) {
-                    instance_cache.insert(blog.instance_id, Instance::get(conn, blog.instance_id)?.public_domain);
+                if let Entry::Vacant(e) = instance_cache.entry(blog.instance_id) {
+                    e.insert(Instance::get(conn, blog.instance_id)?.public_domain);
                 }
                 writer.add_document(doc!(
                     post_id => i64::from(post.id),

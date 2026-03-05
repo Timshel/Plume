@@ -80,7 +80,7 @@ impl Signable for serde_json::Value {
             //signature not present
             return false;
         };
-        let signature = if let Ok(sig) = BASE64_STANDARD.decode(&signature_obj["signatureValue"].as_str().unwrap_or(""))
+        let signature = if let Ok(sig) = BASE64_STANDARD.decode(signature_obj["signatureValue"].as_str().unwrap_or(""))
         {
             sig
         } else {

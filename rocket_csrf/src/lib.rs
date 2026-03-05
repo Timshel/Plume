@@ -55,13 +55,11 @@
 //! use rocket_csrf::CsrfConfig;
 //! use rocket::time::Duration;
 //!
-//! fn main() {
-//!     let csrf_config = CsrfConfig::default()
-//!         .with_lifetime(Some(Duration::hours(2)))
-//!         .with_cookie_name("my_csrf_token")
-//!         .with_cookie_len(64);
+//! let csrf_config = CsrfConfig::default()
+//!     .with_lifetime(Some(Duration::hours(2)))
+//!     .with_cookie_name("my_csrf_token")
+//!     .with_cookie_len(64);
 //!     // ...
-//! }
 //! ```
 //!
 //! ## Rocket Fairing
@@ -268,7 +266,7 @@ impl CsrfToken {
     /// # Returns
     /// (`Result<(), VerificationFailure>`): A result indicating success if the tokens match, or a `VerificationFailure`
     /// error if they do not.
-    pub fn verify(&self, form_authenticity_token: &String) -> Result<(), VerificationFailure> {
+    pub fn verify(&self, form_authenticity_token: &str) -> Result<(), VerificationFailure> {
         // Use a Result to propagate potential errors from the verify function.
         if verify(&self.0, form_authenticity_token).unwrap_or(false) {
             // CSRF token verification succeeded.
@@ -334,7 +332,7 @@ impl RocketFairing for Fairing {
             }
         };
 
-        if let Some(_) = request.valid_csrf_token_from_session(&config) {
+        if request.valid_csrf_token_from_session(config).is_some() {
             return;
         }
 
@@ -342,10 +340,7 @@ impl RocketFairing for Fairing {
 
         let encoded = general_purpose::STANDARD.encode(&values[..]);
 
-        let expires = match config.lifespan {
-            Some(duration) => Some(OffsetDateTime::now_utc() + duration),
-            None => None, // Expiration of None means a session cookie
-        };
+        let expires = config.lifespan.map(|duration| OffsetDateTime::now_utc() + duration);
 
         let cookie_builder = Cookie::build((config.cookie_name.clone(), encoded)).path("/");
 
@@ -357,14 +352,9 @@ impl RocketFairing for Fairing {
 
         let cookie = cookie_builder.build();
 
-        if request.cookies().add_private(cookie) == () {
-            // The cookie was added successfully.
-            info!("CSRF cookie added successfully.");
-        } else {
-            // Handle the case where adding the CSRF cookie fails.
-            // Log an error.
-            error!("Failed to add CSRF cookie");
-        }
+        request.cookies().add_private(cookie);
+        info!("CSRF cookie added successfully.");
+
         let _ = CsrfToken("".to_string()).on_request(request, data).await;
     }
 }
@@ -385,7 +375,7 @@ impl<'r> FromRequest<'r> for CsrfToken {
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         let config = request.guard::<&State<CsrfConfig>>().await.unwrap();
 
-        match request.valid_csrf_token_from_session(&config) {
+        match request.valid_csrf_token_from_session(config) {
             Some(token) => {
                 let encoded = general_purpose::STANDARD.encode(token);
                 Outcome::Success(Self(encoded))

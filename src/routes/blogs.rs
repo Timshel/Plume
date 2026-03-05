@@ -21,7 +21,7 @@ use plume_models::{
 #[get("/~/<name>?<page>", rank = 2)]
 pub async fn details(
     name: String,
-    page: Option<crate::routes::Page>,
+    page: Option<Page>,
     mut conn: DbConn,
     rockets: PlumeRocket,
 ) -> Result<Ructe, ErrorPage> {
@@ -293,7 +293,7 @@ pub async fn outbox_page(name: &str, page: Page, mut conn: DbConn) -> Option<Act
 pub async fn atom_feed(name: &str, mut conn: DbConn) -> Option<(ContentType, String)> {
     let blog = Blog::find_by_fqn(&mut conn, name).await.ok()?;
     let entries = Post::get_recents_for_blog(&mut conn, &blog, 15).ok()?;
-    let uri = Instance::get_local().ok()?.compute_box("~", &name, "atom.xml");
+    let uri = Instance::get_local().ok()?.compute_box("~", name, "atom.xml");
     let title = &blog.title;
     let default_updated = &blog.creation_date;
     let feed = super::build_atom_feed(entries, &uri, title, default_updated, &mut conn);

@@ -23,7 +23,7 @@ impl<'r> FromRequest<'r> for I18n {
             .filter_map(|lang| {
                 lang
                     // Get the locale, not the country code
-                    .split(|c| c == '-' || c == ';')
+                    .split(['-', ';'])
                     .next()
             })
             // Get the first requested locale we support

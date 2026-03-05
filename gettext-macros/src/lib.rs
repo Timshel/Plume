@@ -22,14 +22,11 @@ fn is(t: &TokenTree, ch: char) -> bool {
 
 fn named_arg(mut input: TokenIter, name: &'static str) -> Option<proc_macro2::TokenStream> {
     input.next().and_then(|t| match t {
-        TokenTree::Ident(ref i) if i.to_string() == name => {
+        TokenTree::Ident(ref i) if *i == name => {
             input.next(); // skip "="
             Some(
                 input
-                    .take_while(|tok| match tok {
-                        TokenTree::Punct(_) => false,
-                        _ => true,
-                    })
+                    .take_while(|tok| !matches!(tok, TokenTree::Punct(_)))
                     .collect(),
             )
         }
@@ -461,16 +458,14 @@ pub fn i18n(input: TokenStream) -> TokenStream {
                 #gettext_call.ngettext(#content, #pl, #count as u64)
             )
         }
+    } else if let Some(c) = message.context {
+        quote!(
+            #gettext_call.pgettext(#c, #content)
+        )
     } else {
-        if let Some(c) = message.context {
-            quote!(
-                #gettext_call.pgettext(#c, #content)
-            )
-        } else {
-            quote!(
-                #gettext_call.gettext(#content)
-            )
-        }
+        quote!(
+            #gettext_call.gettext(#content)
+        )
     };
 
     let fargs: syn::punctuated::Punctuated<proc_macro2::TokenStream, Token![,]> =

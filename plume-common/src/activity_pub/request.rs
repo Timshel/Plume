@@ -42,7 +42,7 @@ impl Digest {
     pub fn digest(body: &str) -> HeaderValue {
         let mut hasher = Hasher::new(MessageDigest::sha256()).expect("Digest::digest: initialization error");
         hasher.update(body.as_bytes()).expect("Digest::digest: content insertion error");
-        let res = BASE64_STANDARD.encode(&hasher.finish().expect("Digest::digest: finalizing error"));
+        let res = BASE64_STANDARD.encode(hasher.finish().expect("Digest::digest: finalizing error"));
         HeaderValue::from_str(&format!("SHA-256={}", res)).expect("Digest::digest: header creation error")
     }
 
@@ -86,7 +86,7 @@ impl Digest {
     pub fn from_body(body: &str) -> Self {
         let mut hasher = Hasher::new(MessageDigest::sha256()).expect("Digest::digest: initialization error");
         hasher.update(body.as_bytes()).expect("Digest::digest: content insertion error");
-        let res = BASE64_STANDARD.encode(&hasher.finish().expect("Digest::digest: finalizing error"));
+        let res = BASE64_STANDARD.encode(hasher.finish().expect("Digest::digest: finalizing error"));
         Digest(format!("SHA-256={}", res))
     }
 }
@@ -127,8 +127,8 @@ pub fn signature(
     let mut headers_vec = Vec::with_capacity(headers.len());
     for (h, v) in headers.iter() {
         let v = v.to_str();
-        if v.is_err() {
-            warn!("invalid header error: {:?}", v.unwrap_err());
+        if let Err(err) = v {
+            warn!("invalid header error: {:?}", err);
             return Err(Error());
         }
         headers_vec.push((h.as_str().to_lowercase(), v.expect("Unreachable")));

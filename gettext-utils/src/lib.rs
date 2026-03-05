@@ -24,12 +24,12 @@ pub fn try_format<'a>(
             let mut part = part.split('{');
             let text = part.next().unwrap();
             let arg = part.next().ok_or(FormatError::UnmatchedCurlyBracket)?;
-            if part.next() != ::std::option::Option::None {
+            if part.next().is_some() {
                 return ::std::result::Result::Err(FormatError::UnmatchedCurlyBracket);
             }
             pattern.push(text);
             vars.push(
-                argv.get::<usize>(if arg.len() > 0 {
+                argv.get::<usize>(if !arg.is_empty() {
                     arg.parse().map_err(|_| FormatError::InvalidPositionalArgument)?
                 } else {
                     i
@@ -44,9 +44,8 @@ pub fn try_format<'a>(
 
     //then we generate the result String
     let mut res = ::std::string::String::with_capacity(str_pattern.len());
-    let mut pattern = pattern.iter();
     let mut vars = vars.iter();
-    while let ::std::option::Option::Some(text) = pattern.next() {
+    for text in pattern.into_iter() {
         res.write_str(text).unwrap();
         if let ::std::option::Option::Some(var) = vars.next() {
             res.write_str(&format!("{}", var)).unwrap();

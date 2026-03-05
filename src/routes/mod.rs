@@ -1,4 +1,5 @@
-#![warn(clippy::too_many_arguments)]
+#![allow(clippy::needless_borrows_for_generic_args)]
+
 use crate::template_utils::Ructe;
 use atom_syndication::{ContentBuilder, Entry, EntryBuilder, Feed, FeedBuilder, LinkBuilder, Person, PersonBuilder};
 use chrono::{naive::NaiveDateTime, DateTime, Duration, Utc};

@@ -181,7 +181,6 @@ impl AsObject<User, Undo, &mut Connection> for Follow {
     type Output = ();
 
     async fn activity(self, conn: &mut Connection, actor: User, _id: &str) -> Result<()> {
-        let conn = conn;
         if self.follower_id == actor.id {
             diesel::delete(&self).execute(conn)?;
 

@@ -286,11 +286,11 @@ where
         match attributed_to {
             Array(v) => v.iter().all(|i| match i {
                 String(s) => s != actor_id,
-                Object(obj) => obj.get("id").map_or(true, |s| s != actor_id),
+                Object(obj) => obj.get("id").is_none_or(|s| s != actor_id),
                 _ => false,
             }),
             String(s) => s != actor_id,
-            Object(obj) => obj.get("id").map_or(true, |s| s != actor_id),
+            Object(obj) => obj.get("id").is_none_or(|s| s != actor_id),
             _ => false,
         }
     }

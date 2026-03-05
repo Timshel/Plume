@@ -30,7 +30,7 @@ async fn main() {
         e => e.map(|_| ()).unwrap(),
     }
     let mut conn = Conn::establish(CONFIG.database_url.as_str()).expect("Couldn't connect to the database.");
-    let _ = Instance::cache_local(&mut conn);
+    Instance::cache_local(&mut conn);
 
     if let Some((c, args)) = matches.remove_subcommand() {
         match c.as_str() {

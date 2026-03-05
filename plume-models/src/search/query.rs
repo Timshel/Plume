@@ -81,20 +81,20 @@ macro_rules! gen_parser {
 }
 
 // generate the to_string, giving back a textual query from a PlumeQuery
-macro_rules! gen_to_string {
+macro_rules! gen_display {
     ( $self:ident, $result:ident; normal: $($field:ident),*; date: $($date:ident),*) => {
         $(
         for (occur, val) in &$self.$field {
             if val.contains(' ') {
-                $result.push_str(&format!("{}{}:\"{}\" ", Self::occur_to_str(*occur), stringify!($field), val));
+                write!($result, "{}{}:\"{}\" ", Self::occur_to_str(*occur), stringify!($field), val)?;
             } else {
-                $result.push_str(&format!("{}{}:{} ", Self::occur_to_str(*occur), stringify!($field), val));
+                write!($result, "{}{}:{} ", Self::occur_to_str(*occur), stringify!($field), val)?;
             }
         }
         )*
         $(
-        for val in &$self.$date {
-            $result.push_str(&format!("{}:{} ", stringify!($date), NaiveDate::from_num_days_from_ce_opt(*val as i32).unwrap().format("%Y-%m-%d")));
+        if let Some(val) = &$self.$date {
+            write!($result, "{}:{} ", stringify!($date), NaiveDate::from_num_days_from_ce_opt(*val as i32).unwrap().format("%Y-%m-%d"))?;
         }
         )*
     }
@@ -351,23 +351,20 @@ impl std::str::FromStr for PlumeQuery {
     }
 }
 
-impl ToString for PlumeQuery {
-    #[allow(for_loops_over_fallibles)]
-    fn to_string(&self) -> String {
-        let mut result = String::new();
+impl std::fmt::Display for PlumeQuery {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (occur, val) in &self.text {
             if val.contains(' ') {
-                result.push_str(&format!("{}\"{}\" ", Self::occur_to_str(*occur), val));
+                write!(f, "{}\"{}\" ", Self::occur_to_str(*occur), val)?;
             } else {
-                result.push_str(&format!("{}{} ", Self::occur_to_str(*occur), val));
+                write!(f, "{}{} ", Self::occur_to_str(*occur), val)?;
             }
         }
 
-        gen_to_string!(self, result; normal: title, subtitle, content, tag,
+        gen_display!(self, f; normal: title, subtitle, content, tag,
                       instance, author, blog, lang, license;
                       date: before, after);
 
-        result.pop(); // remove trailing ' '
-        result
+        Ok(())
     }
 }

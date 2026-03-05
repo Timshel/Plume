@@ -106,7 +106,7 @@ fn new(mut args: ArgMatches, conn: &mut Connection) {
         Role::Normal
     };
 
-    let bio = args.remove_one::<String>("biography").unwrap_or(String::new());
+    let bio = args.remove_one::<String>("biography").unwrap_or_default();
     let email = args.remove_one::<String>("email").unwrap_or_else(|| super::ask_for("Email address"));
     let password = args.remove_one::<String>("password").unwrap_or_else(|| {
         print!("Password: ");

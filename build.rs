@@ -2,11 +2,12 @@ use ructe::Ructe;
 use std::process::{Command, Stdio};
 use std::{ffi::OsStr, fs::*, io::Write, path::*};
 
+#[allow(clippy::zombie_processes)]
 fn compute_static_hash() -> String {
     //"find static/ -type f ! -path 'static/media/*' | sort | xargs stat -c'%n %Y' | openssl dgst -r"
 
     let find = Command::new("find")
-        .args(&["static/", "-type", "f", "!", "-path", "static/media/*"])
+        .args(["static/", "-type", "f", "!", "-path", "static/media/*"])
         .stdout(Stdio::piped())
         .spawn()
         .expect("failed find command");
@@ -15,14 +16,14 @@ fn compute_static_hash() -> String {
         Command::new("sort").stdin(find.stdout.unwrap()).stdout(Stdio::piped()).spawn().expect("failed sort command");
 
     let xargs = Command::new("xargs")
-        .args(&["stat", "-c'%n %Y'"])
+        .args(["stat", "-c'%n %Y'"])
         .stdin(sort.stdout.unwrap())
         .stdout(Stdio::piped())
         .spawn()
         .expect("failed xargs command");
 
     let mut sha = Command::new("openssl")
-        .args(&["dgst", "-r"])
+        .args(["dgst", "-r"])
         .stdin(xargs.stdout.unwrap())
         .output()
         .expect("failed openssl command");
@@ -37,7 +38,7 @@ fn main() {
     compile_themes().expect("Theme compilation error");
     recursive_copy(&Path::new("assets").join("icons"), Path::new("static")).expect("Couldn't copy icons");
     recursive_copy(&Path::new("assets").join("images"), Path::new("static")).expect("Couldn't copy images");
-    create_dir_all(&Path::new("static").join("media")).expect("Couldn't init media directory");
+    create_dir_all(Path::new("static").join("media")).expect("Couldn't init media directory");
 
     let cache_id = &compute_static_hash()[..8];
     println!("cargo:rerun-if-changed=plume-front/pkg/plume_front_bg.wasm");
@@ -102,7 +103,7 @@ fn compile_theme(path: &Path, out_dir: &Path) -> std::io::Result<()> {
     create_dir_all(&out)?;
 
     // copy files of the theme that are not scss
-    for ch in read_dir(&dir)? {
+    for ch in read_dir(dir)? {
         recursive_copy(&ch?.path(), &out)?;
     }
 
